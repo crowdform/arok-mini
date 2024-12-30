@@ -1,0 +1,1 @@
+export type EVM_ADDRESS = `0x${string}`

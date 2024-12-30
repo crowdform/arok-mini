@@ -1,0 +1,6 @@
+node_modules
+.env
+bun.lockb
+projects
+src/plugins/plugin-base-nft
+src/plugins/plugin-solana
