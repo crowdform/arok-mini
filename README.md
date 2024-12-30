@@ -24,7 +24,7 @@ Example Plugins to aid further development
 - Twitter Client
 - RAG Query Client
 
-- **Extensible Plugin System**: Easy-to-implement plugin interface for adding new features
+**Extensible Plugin System**: Easy-to-implement plugin interface for adding new features
 
 ## Adding New Plugins
 
@@ -186,25 +186,22 @@ curl -X POST http://localhost:8080/api/chat \
 Required environment variables:
 
 ```
-TWITTER_USERNAME=
-TWITTER_PASSWORD=
-TWITTER_EMAIL=
-TWITTER_2FA_SECRET=
-TWITTER_API_KEY=
-TWITTER_API_SECRET_KEY=
-TWITTER_ACCESS_TOKEN=
-TWITTER_ACCESS_TOKEN_SECRET=
-TWITTER_COOKIES=
-BASE_SEPOLIA_CONTRACT_ADDRESS=
-PRIVATE_KEY=
+# CORE
+FIREBASE_CONFIG="{"apiKey":...}"
 
-FIREBASE_API_KEY=
-AUTH_DOMAIN=
-PROJECT_ID=
-STORAGE_BUCKET=
-MSG_SENDER_ID=
-APP_ID=
-MEASUREMENT_ID=
+HELICONE_API_KEY
+TOGETHER_API_KEY
+OPENAI_API_KEY
+
+# PLUGINs
+
+PLUGIN_QUERY_API_URL
+PLUGIN_API_TOKEN
+
+# TWITTER
+PLUGIN_TWITTER_USERNAME
+PLUGIN_TWITTER_PASSWORD
+PLUGIN_TWITTER_EMAIL
 ```
 
 ## Coding with Claude
