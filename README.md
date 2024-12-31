@@ -273,6 +273,10 @@ This gives Claude full context of your codebase to provide more accurate and con
 
 Please make sure to update tests as appropriate and adhere to the existing coding style.
 
+## Debugging
+
+Start the project with `DEBUG=arok* bun dev`
+
 ## License
 
 This project is licensed under the ISC License - see the LICENSE file for details.

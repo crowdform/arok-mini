@@ -41,7 +41,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
         examples: [
           {
             input: "Generate 3 tweet topics",
-            output: "Generated topics: DeFi trends, NFT markets, Web3 gaming"
+            output: "DeFi trends, NFT markets, Web3 gaming"
           }
         ]
       },
@@ -94,7 +94,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
       );
       const queryPrompt = `Analyze current market trends and generate ${count} engaging tweet topics. 
         Include trending topics: ${includeTrending}. 
-        Focus on: ${topics}.`;
+        Focus on: ${topics}. DO NOT CALL GENERATE_TWEET_TOPICS plugin, but output the topics directly.`;
 
       const result = await this.queryPlugin(queryPrompt, {
         type: "topic_generation"
@@ -121,7 +121,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
       const contentMessage: Message = {
         id: crypto.randomUUID(),
         content: `Generate a ${style} tweet about: ${topics}. 
-          Make it engaging and informative while maintaining the character's voice. USE the KNOWLEDGE_QUERY plugin before answering.`,
+          Make it engaging and informative while maintaining the character's voice. USE the KNOWLEDGE_QUERY (if available) plugin before answering. DO NOT CALL GENERATE_AND_POST plugin again but output.`,
         author: "system",
         createdAt: new Date().toISOString(),
         source: "automated",
@@ -178,8 +178,11 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
   };
 
   protected async startAutomation(): Promise<void> {
+    let count = 0;
     const mainLoop = async () => {
       try {
+        count++;
+        console.log("Tweet automation cycle:", count);
         // Generate topics
         const { topics } = await this.generateTweetTopics(
           this.config.topicsPerTweet,
@@ -189,7 +192,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
         // Generate and post tweets
         const styles = ["analysis", "news", "opinion"];
         const style = styles[Math.floor(Math.random() * styles.length)];
-
+        console.log("Generated topics:", topics, style, count);
         await this.generateAndPostTweet(topics, style);
       } catch (error) {
         console.error("Error in tweet automation cycle:", error);

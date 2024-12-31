@@ -8,6 +8,7 @@ import {
 import { TwitterAutomationPlugin, AutomationConfig } from "./base";
 import { Message } from "../../types/message.types";
 import { TwitterClient } from "./twitter.client";
+import { sampleSize } from "lodash";
 import debug from "debug";
 
 const log = debug("arok:plugin:twitter-replies");
@@ -121,14 +122,20 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
         return { searchTerms: this.activeSearchTerms };
       }
 
-      const baseTopics = data.baseTopics || ["crypto", "defi", "web3", "nft"];
-      const queryPrompt = `Generate strategic search terms for Twitter engagement based on topics: ${baseTopics}`;
+      const baseTopics =
+        data.baseTopics ||
+        sampleSize(this.context.stateService.getCharacter().topics, 5).join(
+          ", "
+        );
+      const queryPrompt = `Generate strategic search terms for Twitter engagement based on topics: ${baseTopics}. DO NOT CALL GENERATE_SEARCH_TERMS but reply directly with the generated terms.`;
 
       const result = await this.queryPlugin(queryPrompt, {
         type: "search_term_generation"
       });
 
-      this.activeSearchTerms = result;
+      this.activeSearchTerms = result
+        .split(",")
+        .map((term: string) => term.trim());
       this.lastSearchTermUpdate = Date.now();
       log("Generated search terms:", this.activeSearchTerms);
 
@@ -239,6 +246,9 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
     const mainLoop = async () => {
       try {
         const { searchTerms } = await this.executeGenerateSearchTerms({});
+
+        log("Generated search terms:", searchTerms);
+
         await this.executeFindAndReply({
           searchTerms,
           maxReplies: this.config.maxRepliesPerRun
