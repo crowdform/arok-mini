@@ -12,6 +12,8 @@ import debug from "debug";
 import { Character } from "./character.loader";
 import type { OpenAI } from "openai";
 import { CacheService } from "./cache.service";
+import { SchedulerService } from "./scheduler/scheduler.service";
+import type { SchedulerConfig } from "./scheduler/types";
 
 const log = debug("arok:agent-service");
 
@@ -19,6 +21,7 @@ export interface AgentConfig {
   characterConfig: Character;
   llmInstance: OpenAI;
   llmInstanceModel: string;
+  schedulerConfig?: SchedulerConfig;
 }
 
 export class AgentService {
@@ -30,6 +33,8 @@ export class AgentService {
   private isShuttingDown: boolean = false;
   private isStarted: boolean = false;
   private readonly MAX_PLUGIN_DEPTH = 3;
+  private readonly scheduler: SchedulerService;
+  private readonly cacheService: CacheService;
 
   constructor(config: AgentConfig) {
     this.memory = new MemoryService();
@@ -41,14 +46,26 @@ export class AgentService {
     });
     this.rateLimit = new RateLimitService();
     this._messageBus = new MessageService();
+    this.cacheService = new CacheService();
+    this.scheduler = new SchedulerService(
+      config.schedulerConfig || {
+        mode: "single-node",
+        timeZone: "UTC",
+        heartbeatInterval: 60000
+      },
+      this.cacheService
+    );
 
-    this.pluginManager = new PluginManager({
+    const context = {
       messageBus: this._messageBus,
       memoryService: this.memory,
+      cacheService: this.cacheService,
+      stateService,
       llmService: this.llm,
-      stateService: stateService,
-      cacheService: new CacheService()
-    });
+      schedulerService: this.scheduler
+    };
+
+    this.pluginManager = new PluginManager(context);
 
     this._messageBus.subscribe(this.handleMessage.bind(this));
   }
@@ -91,6 +108,7 @@ export class AgentService {
       }
 
       this.isStarted = true;
+      this.scheduler.initialize();
       log("Agent service started successfully");
     } catch (error) {
       console.error("Failed to start agent service:", error);

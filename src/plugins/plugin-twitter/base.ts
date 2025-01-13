@@ -11,7 +11,7 @@ const log = debug("arok:plugin:twitter-automation");
 
 export interface AutomationConfig {
   enabled: boolean;
-  interval: number;
+  schedule: string;
   maxRetries: number;
   timeout: number;
 }

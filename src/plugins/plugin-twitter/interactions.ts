@@ -17,8 +17,6 @@ export class TwitterInteractions implements ExtendedPlugin {
   private cache!: PluginContext["cacheService"];
   private context!: PluginContext;
   private processedTweets: Set<string> = new Set();
-  private pollInterval?: NodeJS.Timeout;
-  private readonly POLL_INTERVAL = 60000 * 10; // 10 minute
 
   metadata: PluginMetadata = {
     name: "twitter_interactions",
@@ -55,8 +53,19 @@ export class TwitterInteractions implements ExtendedPlugin {
     log("Twitter interactions plugin initialized");
   }
 
-  start(): Promise<void> {
-    return this.startListening();
+  async start(): Promise<void> {
+    log("Starting Twitter interactions polling...");
+    await this.context.schedulerService.registerJob({
+      id: "twitter:poll-mentions",
+      schedule: "*/10 * * * *", // Every 10 minutes
+      handler: async () => {
+        return this.fetchMentions();
+      },
+      metadata: {
+        plugin: this.metadata.name,
+        description: this.metadata.description
+      }
+    });
   }
 
   actions: Record<string, PluginAction> = {
@@ -67,26 +76,6 @@ export class TwitterInteractions implements ExtendedPlugin {
       }
     }
   };
-
-  async startListening(interval: number = this.POLL_INTERVAL) {
-    log("Starting Twitter interactions polling...");
-    await this.fetchMentions();
-
-    this.pollInterval = setInterval(async () => {
-      try {
-        await this.fetchMentions();
-      } catch (error) {
-        console.error("Error polling Twitter mentions:", error);
-      }
-    }, interval);
-  }
-
-  async stopListening() {
-    if (this.pollInterval) {
-      clearInterval(this.pollInterval);
-      this.pollInterval = undefined;
-    }
-  }
 
   private async initializeCache() {
     const lastMentionId = await this.cache.get("lastMentionId");

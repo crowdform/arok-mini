@@ -57,12 +57,17 @@ async function startServer() {
     const agent = new AgentService({
       characterConfig: character,
       llmInstance,
-      llmInstanceModel: togetherAiConfig.model
+      llmInstanceModel: togetherAiConfig.model,
+      schedulerConfig: {
+        mode: "serverless",
+        timeZone: "UTC",
+        heartbeatInterval: 60000
+      }
     });
 
     // Register plugins
     // await agent.registerPlugin(new QueryPlugin());
-    await agent.registerPlugin(new TwitterRepliesPlugin());
+    // await agent.registerPlugin(new TwitterRepliesPlugin());
     // await agent.registerPlugin(new TwitterTweetsPlugin());
     await agent.registerPlugin(new APIPlugin({ app }));
     // await agent.registerPlugin(new TwitterInteractions());

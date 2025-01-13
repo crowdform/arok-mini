@@ -74,7 +74,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
 
   config: TweetGenerationConfig = {
     enabled: true,
-    interval: 72 * 60 * 1000, // 72 minutes
+    schedule: 72 * 60 * 1000, // 72 minutes
     maxRetries: 3,
     timeout: 30000,
     topicsPerTweet: 2,
@@ -198,10 +198,18 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
         console.error("Error in tweet automation cycle:", error);
       }
     };
-    const interval = setInterval(mainLoop, this.config.interval);
 
-    this.intervals.push(interval);
     log("Started tweet generation automation");
-    await mainLoop();
+    await this.context.schedulerService.registerJob({
+      id: "twitter:generate-tweets",
+      schedule: this.config.schedule, // Every 72 minutes
+      handler: async () => {
+        return mainLoop();
+      },
+      metadata: {
+        plugin: this.metadata.name,
+        description: this.metadata.description
+      }
+    });
   }
 }

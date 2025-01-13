@@ -85,7 +85,7 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
 
   config: ReplyConfig = {
     enabled: true,
-    interval: 15 * 60 * 1000,
+    schedule: "*/15 * * * *",
     maxRetries: 3,
     timeout: 30000,
     maxRepliesPerRun: 5,
@@ -243,24 +243,27 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
   }
 
   protected async startAutomation(): Promise<void> {
-    const mainLoop = async () => {
-      try {
-        const { searchTerms } = await this.executeGenerateSearchTerms({});
-
-        log("Generated search terms:", searchTerms);
-
-        await this.executeFindAndReply({
-          searchTerms,
-          maxReplies: this.config.maxRepliesPerRun
-        });
-      } catch (error) {
-        console.error("Error in reply automation cycle:", error);
-      }
-    };
-
-    const interval = setInterval(mainLoop, this.config.interval);
-    this.intervals.push(interval);
     log("Started reply automation");
-    await mainLoop();
+
+    await this.context.schedulerService.registerJob({
+      id: "twitter:generate-replies",
+      schedule: this.config.schedule, // Every 15 minutes
+      handler: async () => {
+        try {
+          const { searchTerms } = await this.executeGenerateSearchTerms({});
+          log("Generated search terms:", searchTerms);
+          return this.executeFindAndReply({
+            searchTerms,
+            maxReplies: this.config.maxRepliesPerRun
+          });
+        } catch (error) {
+          console.error("Error in reply automation cycle:", error);
+        }
+      },
+      metadata: {
+        plugin: this.metadata.name,
+        description: this.metadata.description
+      }
+    });
   }
 }

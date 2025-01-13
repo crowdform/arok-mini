@@ -6,6 +6,7 @@ import { MemoryService } from "../memory.service";
 import { CacheService } from "../cache.service";
 import { LLMService } from "../llm.service";
 import { StateService } from "../state.service";
+import { SchedulerService } from "../scheduler/scheduler.service";
 
 export interface PluginContext {
   messageBus: MessageService;
@@ -13,6 +14,7 @@ export interface PluginContext {
   cacheService: CacheService;
   llmService: LLMService;
   stateService: StateService;
+  schedulerService: SchedulerService;
 }
 
 export interface ActionSchema {

@@ -99,6 +99,11 @@ export class APIPlugin implements ExtendedPlugin {
     this.context = context;
     await this.setupRoutes();
 
+    // If in serverless mode, set up heartbeat endpoint
+    if (this.context.schedulerService.config.mode === "serverless") {
+      this.setupHeartbeatEndpoint();
+    }
+
     // Subscribe to outgoing messages
     this.context.messageBus.subscribeToOutgoing(
       this.handleOutgoingMessage.bind(this)
@@ -106,6 +111,23 @@ export class APIPlugin implements ExtendedPlugin {
 
     this.isInitialized = true;
     log("API plugin initialized");
+  }
+  private setupHeartbeatEndpoint(): void {
+    this.app.get("/heartbeat", async (req, res) => {
+      try {
+        await this.context.schedulerService.triggerHeartbeat();
+        const results = await this.context.schedulerService.processJobs();
+        res.json(results);
+      } catch (error) {
+        console.error("Error processing heartbeat:", error);
+        res.status(500).json({
+          error: "Internal server error",
+          message: error instanceof Error ? error.message : "Unknown error"
+        });
+      }
+    });
+
+    log("Set up serverless heartbeat endpoint at /heartbeat");
   }
 
   private async setupRoutes() {
