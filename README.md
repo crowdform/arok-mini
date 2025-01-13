@@ -10,6 +10,7 @@ AROK Mini is a lightweight, plugin-based agent framework designed for building i
 - **Memory Service**: Persistent storage of conversations and context
 - **Plugin System**: Extensible architecture for adding new capabilities
 - **Multi-Platform Support**: Built-in support for different communication channels
+- **Scheduler Service**: Robust job scheduling system with multiple deployment modes
 
 ### Built-in Clients
 
@@ -54,6 +55,13 @@ AROK Mini uses a distributed plugin system where each plugin is its own npm pack
 
      async initialize(context: PluginContext): Promise<void> {
        // Initialize your plugin
+       await context.scheduler.registerJob({
+         id: "your-scheduled-task",
+         schedule: "*/5 * * * *",
+         handler: async () => {
+           // Your task logic
+         }
+       });
      }
 
      actions = {
@@ -125,6 +133,86 @@ await agent.registerPlugin(new YourPlugin());
 - Follow existing code style (use prettier)
 - Use semantic versioning
 - List arok-mini as a peer dependency
+
+## Scheduler System
+
+AROK Mini includes a robust scheduling system that supports both serverless and single-node deployments.
+
+### Deployment Modes
+
+#### Single-Node Mode
+
+- Built-in heartbeat mechanism
+- Interval-based job processing
+- In-memory job management
+- Automatic job recovery on restart
+
+```typescript
+const agent = new AgentService({
+  schedulerConfig: {
+    mode: "single-node",
+    timeZone: "UTC",
+    heartbeatInterval: 60000 // 1 minute
+  }
+});
+```
+
+#### Serverless Mode
+
+- HTTP endpoint for triggering jobs (/heartbeat)
+- Stateless job processing
+- Cloud-friendly architecture
+- Supports horizontal scaling
+
+```typescript
+const agent = new AgentService({
+  schedulerConfig: {
+    mode: "serverless",
+    timeZone: "UTC"
+  }
+});
+```
+
+### Job Configuration
+
+Jobs can be registered with CRON-style scheduling:
+
+```typescript
+await scheduler.registerJob({
+  id: "daily-cleanup",
+  schedule: "0 0 * * *", // Daily at midnight
+  handler: async () => {
+    // Job logic here
+  },
+  metadata: {
+    description: "Daily cleanup task",
+    priority: "high"
+  }
+});
+```
+
+### Job Management Features
+
+- **Caching**: Job results and states are cached
+- **Error Handling**: Built-in error recovery and logging
+- **Status Tracking**: Monitor job execution and results
+- **Metadata Support**: Add custom metadata to jobs
+- **Event System**: Subscribe to job events (completion, errors)
+
+### Job Status Monitoring
+
+Query job status and history:
+
+```typescript
+const status = await scheduler.getJobStatus("job-id");
+// Returns:
+// {
+//   lastRun: string,
+//   lastResult: JobResult,
+//   lastError: JobResult,
+//   config: Job
+// }
+```
 
 ## Running Locally
 
