@@ -5,6 +5,8 @@ import {
   PluginAction
 } from "../../services/plugins/types";
 import { Message } from "../../types/message.types";
+import { TwitterClient } from "./twitter.client";
+
 import debug from "debug";
 
 const log = debug("arok:plugin:twitter-automation");
@@ -18,6 +20,8 @@ export interface AutomationConfig {
 
 export abstract class TwitterAutomationPlugin implements ExtendedPlugin {
   protected context!: PluginContext;
+  public client!: TwitterClient;
+  public cache!: PluginContext["cacheService"];
   protected intervals: NodeJS.Timeout[] = [];
   protected messageHandlers: Map<string, (message: Message) => Promise<void>> =
     new Map();
@@ -36,8 +40,9 @@ export abstract class TwitterAutomationPlugin implements ExtendedPlugin {
 
   async initialize(context: PluginContext): Promise<void> {
     this.context = context;
+    this.cache = context.cacheService;
     log(`Initializing ${this.metadata.name}`);
-
+    this.client = TwitterClient.getInstance(context);
     this.context.messageBus.subscribeToOutgoing(
       this.handleAgentResponse.bind(this)
     );
@@ -128,6 +133,7 @@ export abstract class TwitterAutomationPlugin implements ExtendedPlugin {
 
     log(`Sending content to Twitter: ${content.substring(0, 50)}...`);
     await this.context.messageBus.send(twitterMessage);
+    return this.waitForAgentResponse(twitterMessage.id);
   }
 
   protected async queryPlugin(

@@ -160,12 +160,12 @@ export class SchedulerService {
       const lastRunKey = `${this.CACHE_PREFIX}${job.id}:lastRun`;
       const lastRun = await this.cacheService.get(lastRunKey);
 
-      if (!lastRun) {
+      if (!lastRun?.value) {
         return true; // First run
       }
 
       const interval = parseExpression(job.schedule, {
-        currentDate: new Date(lastRun.value),
+        currentDate: new Date(lastRun?.value),
         tz: this.config.timeZone
       });
 

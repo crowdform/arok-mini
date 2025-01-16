@@ -38,6 +38,7 @@ export class APIPlugin implements ExtendedPlugin {
     name: "api",
     description: "Handles HTTP API interactions",
     version: "1.0.0",
+    callable: false,
     actions: {
       SEND_API_RESPONSE: {
         description: "Send a response to an API request",
@@ -54,7 +55,8 @@ export class APIPlugin implements ExtendedPlugin {
               description: "Response content",
               required: true
             }
-          }
+          },
+          required: ["responseId", "content"]
         },
         examples: [
           {

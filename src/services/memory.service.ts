@@ -33,7 +33,7 @@ export class MemoryService {
         participants: [message.author],
         author: message.author,
         content: message.content,
-        createdAt: message.createdAt || new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         parentId: message.parentId,
         source: message.source,
         metadata: message.metadata

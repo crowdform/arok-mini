@@ -6,7 +6,7 @@ import express from "express";
 config();
 import { CharacterLoader } from "./services/character.loader";
 import { AgentService } from "./services/agent.service";
-
+import { createOpenAI } from "@ai-sdk/openai";
 import debug from "debug";
 
 const log = debug("arok:init");
@@ -21,8 +21,6 @@ import {
 } from "./plugins/plugin-twitter";
 
 import { APIPlugin } from "./plugins/plugin-api";
-
-import OpenAI from "openai";
 
 async function startServer() {
   try {
@@ -51,24 +49,25 @@ async function startServer() {
       baseURL: `https://together.helicone.ai/v1/${process.env.HELICONE_API_KEY}`,
       model: "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo"
     };
-
-    const llmInstance = new OpenAI(togetherAiConfig);
+    const llmInstance = createOpenAI({
+      ...togetherAiConfig
+    });
 
     const agent = new AgentService({
       characterConfig: character,
       llmInstance,
       llmInstanceModel: togetherAiConfig.model,
       schedulerConfig: {
-        mode: "serverless",
+        mode: "single-node",
         timeZone: "UTC",
         heartbeatInterval: 60000
       }
     });
 
     // Register plugins
-    // await agent.registerPlugin(new QueryPlugin());
+    await agent.registerPlugin(new QueryPlugin());
     // await agent.registerPlugin(new TwitterRepliesPlugin());
-    // await agent.registerPlugin(new TwitterTweetsPlugin());
+    await agent.registerPlugin(new TwitterTweetsPlugin());
     await agent.registerPlugin(new APIPlugin({ app }));
     // await agent.registerPlugin(new TwitterInteractions());
 

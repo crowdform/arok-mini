@@ -29,7 +29,6 @@ interface Tweet {
 }
 
 export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
-  private client!: TwitterClient;
   public activeSearchTerms: string[] = [];
   public lastSearchTermUpdate: number = 0;
   public processedTweets: Set<string> = new Set();
@@ -38,6 +37,7 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
     name: "twitter_replies_automation",
     description: "Automates finding and replying to relevant Twitter content",
     version: "1.0.0",
+    callable: false,
     actions: {
       GENERATE_SEARCH_TERMS: {
         description: "Generate relevant search terms for Twitter content",
@@ -48,7 +48,8 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
               type: "string",
               description: "Base topics to generate search terms from"
             }
-          }
+          },
+          required: ["baseTopics"]
         },
         examples: [
           {
@@ -71,7 +72,8 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
               type: "number",
               description: "Maximum number of replies to generate"
             }
-          }
+          },
+          required: ["searchTerms", "maxReplies"]
         },
         examples: [
           {

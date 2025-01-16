@@ -66,73 +66,61 @@ export class StateService {
 
   async composeState(
     message: Message,
-    history: any[],
-    availablePlugins: PluginMetadata[],
-    pluginResponses: PluginResponse[] = []
+    history: any[]
+    // availablePlugins: PluginMetadata[],
+    // pluginResponses: PluginResponse[] = []
   ): Promise<StateContext> {
     const recentMessages = await this.getRecentMessages(message);
-    const pluginChainDepth = this.calculatePluginChainDepth(pluginResponses);
+    // const pluginChainDepth = this.calculatePluginChainDepth(pluginResponses);
     const conversationSummary = await this.buildConversationSummary(
-      recentMessages,
-      pluginResponses
+      recentMessages
+      // @ts-ignore
+      // pluginResponses
     );
 
-    // Get the last plugin action if any
-    const lastPluginAction =
-      pluginResponses.length > 0
-        ? pluginResponses[pluginResponses.length - 1].action
-        : undefined;
+    // // Get the last plugin action if any
+    // const lastPluginAction =
+    //   pluginResponses.length > 0
+    //     ? pluginResponses[pluginResponses.length - 1].action
+    //     : undefined;
 
+    // @ts-ignore
     return {
       character: this.character,
       currentMessage: message,
       recentMessages,
       history,
-      plugins: availablePlugins,
-      pluginResponses,
+      // plugins: availablePlugins,
+      // pluginResponses,
       randomBio: this.getRandomElement(this.character.bio),
       randomLore: this.getRandomElements(this.character.lore, 3),
       randomTopic: this.getRandomElement(this.character.topics),
       randomExamples: this.getRandomElements(this.character.postExamples, 5),
-      conversationSummary,
-      lastPluginAction,
-      pluginChainDepth
+      conversationSummary
+      // lastPluginAction,
+      // pluginChainDepth
     };
   }
+  // # Available plugins and actions:\n
+  // ${pluginDescriptions}
+  // \n
+  // # Plugin interaction status:\n
+  // ${pluginResponseContext}
 
   buildSystemPrompt(state: StateContext): string {
-    const pluginDescriptions = this.buildPluginDescriptions(state.plugins);
+    // const pluginDescriptions = this.buildPluginDescriptions(state.plugins);
     const characterContext = this.buildCharacterContext(state);
-    const pluginResponseContext = this.buildPluginResponseContext(state);
-    const conversationContext = state.conversationSummary
-      ? `\nConversation context:\n${state.conversationSummary}`
-      : "";
+    // const pluginResponseContext = this.buildPluginResponseContext(state);
+    // const conversationContext = state.conversationSummary
+    //   ? `\nConversation context:\n${state.conversationSummary}`
+    //   : "";
 
     return `${characterContext}
 
 # General Information:\n
 Date and time: ${new Date().toLocaleString()}
 
-# Available plugins and actions:\n
-${pluginDescriptions}
-\n
-# Plugin interaction status:\n
-${pluginResponseContext}
-${conversationContext}
-\n
-You can:\n
-1. Call another plugin if more information is needed (up to depth ${3 - state.pluginChainDepth})
-2. Provide a direct response incorporating available information
-\n
-Return response as JSON:\n
-{
-  "action": string | null,     // Plugin to call or null for direct response
-  "data": object | null,       // Parameters for plugin if needed
-  "content": string,           // Reasoning or final response
-  "metadata": object          // Additional context
-}
-\n
-Always maintain character voice and follow style:
+# When a final response is needed, response in the character style:
 ${state.character.style.all.join("\n")}
 ${state.character.style.chat.join("\n")}`;
   }
@@ -142,22 +130,24 @@ ${state.character.style.chat.join("\n")}`;
   ): Array<{ role: string; content: string }> {
     const contextMessages = [];
 
+    console.log(state.recentMessages);
+
     // Add recent messages
     for (const msg of state.recentMessages) {
       const author = msg?.participants?.[0] || "assistant";
       contextMessages.push({
-        role: author === "assistant" ? "assistant" : "user",
+        role: author === "agent" ? "assistant" : "user",
         content: `${author}: ${msg.content}`
       });
     }
 
     // Add plugin responses as system messages
-    for (const response of state.pluginResponses) {
-      contextMessages.push({
-        role: "system",
-        content: `Plugin ${response.action} returned: ${JSON.stringify(response.result)}`
-      });
-    }
+    // for (const response of state.pluginResponses) {
+    //   contextMessages.push({
+    //     role: "system",
+    //     content: `Plugin ${response.action} returned: ${JSON.stringify(response.result)}`
+    //   });
+    // }
 
     return contextMessages;
   }
@@ -179,8 +169,8 @@ ${state.pluginResponses
   }
 
   private async buildConversationSummary(
-    messages: Message[],
-    pluginResponses: PluginResponse[]
+    messages: Message[]
+    // pluginResponses: PluginResponse[]
   ): Promise<string> {
     if (messages.length === 0) return "";
 
@@ -191,13 +181,13 @@ ${state.pluginResponses
       summary += `- ${msg.author}: ${msg.content}\n`;
     });
 
-    // Add plugin context
-    if (pluginResponses.length > 0) {
-      summary += "\nPlugin actions taken:\n";
-      pluginResponses.forEach((resp) => {
-        summary += `- ${resp.action} was called with result: ${JSON.stringify(resp.result)}\n`;
-      });
-    }
+    // // Add plugin context
+    // if (pluginResponses.length > 0) {
+    //   summary += "\nPlugin actions taken:\n";
+    //   pluginResponses.forEach((resp) => {
+    //     summary += `- ${resp.action} was called with result: ${JSON.stringify(resp.result)}\n`;
+    //   });
+    // }
 
     return summary;
   }
@@ -210,10 +200,7 @@ Your personality:
 ${state.randomBio}
 \n
 Your recent lore:
-${state.randomLore.join("\n")}
-\n
-Your current focus:
-Topic: ${state.randomTopic}`;
+${state.randomLore.join("\n")}`;
   }
 
   private buildPluginDescriptions(plugins: PluginMetadata[]): string {

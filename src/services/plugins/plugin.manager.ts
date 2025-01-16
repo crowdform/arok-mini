@@ -113,8 +113,8 @@ export class PluginManager {
     // Save to memory service
     await this.context.memoryService.addMemory(resultMessage);
 
-    // Publish to message bus
-    await this.context.messageBus.publish(resultMessage);
+    // // Publish to message bus
+    // await this.context.messageBus.publish(resultMessage);
   }
 
   private isExtendedPlugin(
@@ -141,6 +141,8 @@ export class PluginManager {
   }
 
   getPluginMetadata(): PluginMetadata[] {
-    return Array.from(this.plugins.values()).map((plugin) => plugin.metadata);
+    return Array.from(this.plugins.values())
+      .map((plugin) => plugin.metadata)
+      .filter((plugin) => plugin.callable);
   }
 }

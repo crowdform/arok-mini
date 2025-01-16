@@ -7,6 +7,7 @@
     "serve": "ts-node src/index.ts",
     ":dev": "bun --watch ./src/index.ts",
     "dev": "DEBUG=arok*  nodemon --exec ts-node src/index.ts",
+    "debug": "nodemon --exec ts-node src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -14,8 +15,10 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@ai-sdk/openai": "^1.0.19",
     "@types/debug": "^4.1.12",
     "agent-twitter-client": "^0.0.16",
+    "ai": "^4.0.36",
     "cron-parser": "^4.9.0",
     "debug": "^4.4.0",
     "dotenv": "^16.4.7",
@@ -24,7 +27,8 @@
     "lodash": "^4.17.21",
     "openai": "^4.76.3",
     "prettier": "^3.4.2",
-    "text-to-image": "^7.0.1"
+    "text-to-image": "^7.0.1",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",

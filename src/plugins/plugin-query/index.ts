@@ -90,7 +90,6 @@ class QueryAction implements PluginAction<QueryActionData, QueryActionResult> {
 
       // Read the response directly as text
       const result = await response.text();
-      log("Raw response:", result);
 
       log("Processed response:", result);
 
@@ -119,27 +118,28 @@ export class QueryPlugin implements ExtendedPlugin {
   private context?: PluginContext;
 
   metadata: PluginMetadata = {
-    name: "QUERY_KNOWLEDGE",
+    name: "QUERY",
     description:
-      "Retrieves information about various topics, trends and should be used for most specific RAG queries",
+      "ALWAYS USE - Query Knowledge (your BRAIN) - always use to begin. Retrieves information about various topics, trends, live prices, $cashtags, tokens, projects, market analysis and should be used for all in depth queries",
     version: "1.0.0",
+    callable: true,
     actions: {
       QUERY: {
+        scope: ["*"],
         description: "Get information about any specific topic",
         schema: {
           type: "object",
           properties: {
             topic: {
               type: "string",
-              description: "The topic to query about",
-              required: true
+              description: "The topic to query about"
             },
             context: {
               type: "string",
-              description: "Additional context for the query",
-              required: false
+              description: "Additional context for the query"
             }
-          }
+          },
+          required: ["topic", "context"]
         },
         examples: [
           {

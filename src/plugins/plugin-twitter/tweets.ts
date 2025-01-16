@@ -22,9 +22,11 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
     name: "twitter_tweets_automation",
     description: "Automates generating and posting Twitter content",
     version: "1.0.0",
+    callable: true,
     actions: {
       GENERATE_TWEET_TOPICS: {
         description: "Generate relevant topics for new tweets",
+        scope: ["automation"],
         schema: {
           type: "object",
           properties: {
@@ -36,8 +38,10 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
               type: "boolean",
               description: "Whether to include trending topics"
             }
-          }
+          },
+          required: ["count", "includeTrending"]
         },
+
         examples: [
           {
             input: "Generate 3 tweet topics",
@@ -45,8 +49,33 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
           }
         ]
       },
-      GENERATE_AND_POST: {
-        description: "Generate and post new tweets",
+      POST_TWEET: {
+        scope: ["*"],
+        description:
+          "Generate relevant content and post a new tweet in character",
+        schema: {
+          type: "object",
+          properties: {
+            tweetContent: {
+              type: "string",
+              description:
+                "Content of Tweet to post - max 280 characters. Returns Tweet ID"
+            }
+          },
+
+          required: ["tweetContent"]
+        },
+        examples: [
+          {
+            input: "Generate analysis tweet about DeFi trends",
+            output: "Generated and queued tweet for posting"
+          }
+        ]
+      },
+      GENERATE_AND_POST_TWEET: {
+        scope: ["automation"],
+        description:
+          "Generate relevant content and post a new tweet in character",
         schema: {
           type: "object",
           properties: {
@@ -60,7 +89,9 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
               enum: ["analysis", "news", "opinion"],
               description: "Style of the tweet"
             }
-          }
+          },
+
+          required: ["style", "topics"]
         },
         examples: [
           {
@@ -74,7 +105,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
 
   config: TweetGenerationConfig = {
     enabled: true,
-    schedule: 72 * 60 * 1000, // 72 minutes
+    schedule: "*/15 * * * *", // 72 minutes
     maxRetries: 3,
     timeout: 30000,
     topicsPerTweet: 2,
@@ -121,7 +152,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
       const contentMessage: Message = {
         id: crypto.randomUUID(),
         content: `Generate a ${style} tweet about: ${topics}. 
-          Make it engaging and informative while maintaining the character's voice. USE the KNOWLEDGE_QUERY (if available) plugin before answering. DO NOT CALL GENERATE_AND_POST plugin again but output.`,
+          Make it engaging and informative while maintaining the character's voice. USE the QUERY (if available) plugin before answering. DO NOT CALL GENERATE_AND_POST plugin again but output.`,
         author: "system",
         createdAt: new Date().toISOString(),
         source: "automated",
@@ -157,6 +188,18 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
     }
   }
 
+  async postTweet(tweetContent: string) {
+    // Send generated content to Twitter
+    const tweetId = await this.sendToTwitter(tweetContent, undefined, {
+      generationType: "automated"
+    });
+    this.lastTweetTime = Date.now();
+
+    log(`Sent tweet ${tweetId} :: ${tweetContent}`);
+
+    return { status: "sent", tweetId, timestamp: this.lastTweetTime };
+  }
+
   actions = {
     GENERATE_TWEET_TOPICS: {
       execute: async (
@@ -167,7 +210,16 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
       }
     },
 
-    GENERATE_AND_POST: {
+    POST_TWEET: {
+      execute: async (
+        data: { tweetContent: string },
+        context?: ActionExecutionContext
+      ) => {
+        return this.postTweet(data.tweetContent);
+      }
+    },
+
+    GENERATE_AND_POST_TWEET: {
       execute: async (
         data: { topics: string; style: string },
         context?: ActionExecutionContext
@@ -204,7 +256,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
       id: "twitter:generate-tweets",
       schedule: this.config.schedule, // Every 72 minutes
       handler: async () => {
-        return mainLoop();
+        // return mainLoop();
       },
       metadata: {
         plugin: this.metadata.name,

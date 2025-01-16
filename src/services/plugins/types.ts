@@ -19,6 +19,7 @@ export interface PluginContext {
 
 export interface ActionSchema {
   type: string;
+  required: string[];
   properties: Record<
     string,
     {
@@ -37,6 +38,7 @@ export interface ActionSchema {
 export interface ActionMetadata {
   description: string;
   schema: ActionSchema;
+  scope?: string[];
   examples: {
     input: string;
     output: string;
@@ -47,6 +49,7 @@ export interface PluginMetadata {
   name: string;
   description: string;
   version: string;
+  callable: boolean;
   actions: Record<string, ActionMetadata>;
 }
 

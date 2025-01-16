@@ -5,23 +5,27 @@ import {
   PluginMetadata,
   PluginAction
 } from "../../services/plugins/types";
-
-import { TwitterClient } from "./twitter.client";
+import { TwitterAutomationPlugin, AutomationConfig } from "./base";
 import debug from "debug";
 import { SearchMode } from "agent-twitter-client";
 
 const log = debug("arok:plugin:twitter:interactions");
 
-export class TwitterInteractions implements ExtendedPlugin {
-  private client!: TwitterClient;
-  private cache!: PluginContext["cacheService"];
-  private context!: PluginContext;
+interface InteractionsConfig extends AutomationConfig {
+  maxRepliesPerRun: number;
+  maxRepliesPerTweet: number;
+  searchTermRotationInterval: number;
+  minEngagementScore: number;
+}
+
+export class TwitterInteractions extends TwitterAutomationPlugin {
   private processedTweets: Set<string> = new Set();
 
   metadata: PluginMetadata = {
     name: "twitter_interactions",
     description: "Handles Twitter interactions and mentions",
     version: "1.0.0",
+    callable: false,
     actions: {
       FETCH_MENTIONS: {
         description: "Fetches recent mentions from Twitter",
@@ -33,7 +37,8 @@ export class TwitterInteractions implements ExtendedPlugin {
               description: "Number of mentions to fetch",
               required: false
             }
-          }
+          },
+          required: ["count"]
         },
         examples: [
           {
@@ -45,15 +50,26 @@ export class TwitterInteractions implements ExtendedPlugin {
     }
   };
 
+  config: InteractionsConfig = {
+    enabled: true,
+    schedule: "*/15 * * * *",
+    maxRetries: 3,
+    timeout: 30000,
+    maxRepliesPerRun: 5,
+    maxRepliesPerTweet: 1,
+    searchTermRotationInterval: 4 * 60 * 60 * 1000,
+    minEngagementScore: 0.6
+  };
+
   async initialize(context: PluginContext): Promise<void> {
     this.context = context;
-    this.client = TwitterClient.getInstance(context);
+
     this.cache = this.context.cacheService;
     await this.initializeCache();
     log("Twitter interactions plugin initialized");
   }
 
-  async start(): Promise<void> {
+  async startAutomation(): Promise<void> {
     log("Starting Twitter interactions polling...");
     await this.context.schedulerService.registerJob({
       id: "twitter:poll-mentions",
