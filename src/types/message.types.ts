@@ -25,10 +25,12 @@ export interface MessageBus {
   subscribe(handler: (message: Message) => Promise<void>): void;
 }
 
+export type Timer = ReturnType<typeof setTimeout>;
+
 export interface ResponseHandler {
   resolve: (value: Message | null) => void;
   reject: (error: Error) => void;
-  timeout: NodeJS.Timeout;
+  timeout: Timer;
 }
 
 export const ROUTING_PATTERNS = {
