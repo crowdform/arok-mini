@@ -127,7 +127,7 @@ export class TwitterInteractions extends TwitterAutomationPlugin {
   }): string {
     return `
   
-# TASK: Generate a post/reply in the voice, style and perspective of ${agentName} (@${twitterUsername}) while using the thread of tweets as additional context:
+# TASK: Generate a post/reply in the voice, style and perspective of ${agentName} (@${twitterUsername}), always use the query plugin to get more information before answering. 
 
 
 # Twitter Interactions Plugin

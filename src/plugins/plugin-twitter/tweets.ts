@@ -125,7 +125,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
       );
       const queryPrompt = `Analyze current market trends and generate ${count} engaging tweet topics. 
         Include trending topics: ${includeTrending}. 
-        Focus on: ${topics}. DO NOT CALL GENERATE_TWEET_TOPICS plugin, but output the topics directly.`;
+        Focus on: ${topics}. Output the topics directly. Use the query plugin first.`;
 
       const result = await this.queryPlugin(queryPrompt, {
         type: "topic_generation"
