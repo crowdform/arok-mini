@@ -1,7 +1,6 @@
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, setDoc, getDoc, deleteDoc } from "firebase/firestore";
 import { storage, db } from "../config/firebase";
-import { CacheEntry } from "../models/CacheEntry";
 
 export class StorageService {
   async uploadImage(imageBuffer: Buffer, tweetId: string): Promise<string> {
@@ -19,7 +18,7 @@ export class StorageService {
     try {
       const metadataRef = ref(storage, `metadata/${tweetId}.json`);
       const metadataBlob = new Blob([JSON.stringify(metadata)], {
-        type: "application/json",
+        type: "application/json"
       });
       const response = await uploadBytes(metadataRef, metadataBlob);
       return await getDownloadURL(response.ref);
@@ -35,7 +34,7 @@ export class StorageService {
       const snapshot = await getDoc(cacheRef);
       if (!snapshot.exists()) return false;
 
-      const data = snapshot.data() as CacheEntry<any>;
+      const data = snapshot.data() as any;
       // Consider cache entries older than 24 hours as expired
       const isExpired = Date.now() - data.timestamp > 24 * 60 * 60 * 1000;
 
@@ -83,7 +82,7 @@ export class StorageService {
       const cacheRef = doc(db, "cache", key);
       await setDoc(cacheRef, {
         value,
-        timestamp: Date.now(),
+        timestamp: Date.now()
       });
     } catch (error) {
       console.error("Error setting cache:", error);

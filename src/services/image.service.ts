@@ -1,7 +1,10 @@
 import { generate } from "text-to-image";
 import { StorageService } from "./storage.service";
-import { Tweet } from "../models/Tweet";
 
+type Tweet = {
+  id: string;
+  text: string;
+};
 export class ImageService {
   private storage: StorageService;
   private readonly defaultConfig = {
@@ -12,7 +15,7 @@ export class ImageService {
     bgColor: "#ffffff",
     textColor: "#000000",
     fontFamily: "Arial",
-    customHeight: 400,
+    customHeight: 400
   };
 
   constructor() {
@@ -27,7 +30,7 @@ export class ImageService {
       // Generate the image
       const dataUri = await generate(tweet.text, {
         ...this.defaultConfig,
-        ...config,
+        ...config
       });
 
       // Convert data URI to buffer
@@ -40,7 +43,7 @@ export class ImageService {
       // Cache the URL
       await this.storage.setCache(`image:${tweet.id}`, {
         url: imageUrl,
-        createdAt: Date.now(),
+        createdAt: Date.now()
       });
 
       return imageUrl;

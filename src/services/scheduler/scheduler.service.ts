@@ -4,6 +4,7 @@ import debug from "debug";
 import { Job, JobResult, SchedulerConfig } from "./types";
 import { PluginContext } from "../plugins/types";
 import { CacheService } from "../cache.service";
+import { Timer } from "../../types/message.types";
 
 const log = debug("arok:scheduler");
 
@@ -19,7 +20,7 @@ export class SchedulerService {
   private isInitialized: boolean = false;
   private readonly CACHE_PREFIX = "scheduler:job:";
   private eventEmitter: EventEmitter;
-  private heartbeatInterval?: NodeJS.Timeout;
+  private heartbeatInterval?: Timer;
   private cacheService: CacheService;
 
   constructor(config: SchedulerConfig, cacheService: CacheService) {
