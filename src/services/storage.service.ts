@@ -3,9 +3,9 @@ import { doc, setDoc, getDoc, deleteDoc } from "firebase/firestore";
 import { storage, db } from "../config/firebase";
 
 export class StorageService {
-  async uploadImage(imageBuffer: Buffer, tweetId: string): Promise<string> {
+  async uploadImage(imageBuffer: Buffer, imageId: string): Promise<string> {
     try {
-      const imageRef = ref(storage, `images/${tweetId}.png`);
+      const imageRef = ref(storage, `images/${imageId}.png`);
       const response = await uploadBytes(imageRef, imageBuffer);
       return await getDownloadURL(response.ref);
     } catch (error) {
@@ -14,9 +14,9 @@ export class StorageService {
     }
   }
 
-  async uploadMetadata(metadata: any, tweetId: string): Promise<string> {
+  async uploadMetadata(metadata: any, imageId: string): Promise<string> {
     try {
-      const metadataRef = ref(storage, `metadata/${tweetId}.json`);
+      const metadataRef = ref(storage, `metadata/${imageId}.json`);
       const metadataBlob = new Blob([JSON.stringify(metadata)], {
         type: "application/json"
       });
