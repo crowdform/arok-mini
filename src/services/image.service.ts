@@ -1,4 +1,3 @@
-import { generate } from "text-to-image";
 import { StorageService } from "./storage.service";
 
 type Tweet = {
@@ -28,10 +27,12 @@ export class ImageService {
   ): Promise<string> {
     try {
       // Generate the image
-      const dataUri = await generate(tweet.text, {
-        ...this.defaultConfig,
-        ...config
-      });
+      // const dataUri = await generate(tweet.text, {
+      //   ...this.defaultConfig,
+      //   ...config
+      // });
+
+      const dataUri = "";
 
       // Convert data URI to buffer
       const base64Data = dataUri.replace(/^data:image\/png;base64,/, "");
