@@ -9,7 +9,8 @@
     "dev": "DEBUG=arok*  nodemon --exec ts-node src/index.ts",
     "debug": "nodemon --exec ts-node src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc"
+    "build": "tsc",
+    "postinstall": "tsc"
   },
   "keywords": [],
   "author": "",
