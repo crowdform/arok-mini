@@ -52,7 +52,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
       POST_TWEET: {
         scope: ["*"],
         description:
-          "Generate relevant content and post a new tweet in character",
+          "Post a new tweet - reply in character with the generated tweet content, max 280 characters, no hashtags or emojis",
         schema: {
           type: "object",
           properties: {
@@ -105,12 +105,12 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
 
   config: TweetGenerationConfig = {
     enabled: true,
-    schedule: "*/15 * * * *", // 72 minutes
+    schedule: "*/72 * * * *", // 72 minutes
     maxRetries: 3,
     timeout: 30000,
     topicsPerTweet: 2,
     maxTweetsPerRun: 1,
-    minInterval: 15 * 60 * 1000, // 15 minutes minimum between tweets
+    minInterval: 72 * 60 * 1000, // 15 minutes minimum between tweets
     useTrendingTopics: true
   };
 

@@ -67,7 +67,7 @@ async function startServer() {
     // Register plugins
     await agent.registerPlugin(new QueryPlugin());
     // await agent.registerPlugin(new TwitterRepliesPlugin());
-    // await agent.registerPlugin(new TwitterTweetsPlugin());
+    await agent.registerPlugin(new TwitterTweetsPlugin());
     await agent.registerPlugin(new APIPlugin({ app }));
     await agent.registerPlugin(new TwitterInteractions());
 
