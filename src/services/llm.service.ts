@@ -84,8 +84,8 @@ export class LLMService {
   //         response_format: { type: "json_object" },
   //         headers: {
   //           "Helicone-User-Id": message.author
-  //           // "Helicone-Session-Id": message.parentId || message.id
-  //           // "Helicone-Session-Path": `/users/${message.author}/${message.parentId ? `${message.parentId}/` : ""}${message.id}/`,
+  //           // "Helicone-Session-Id": message.requestId || message.id
+  //           // "Helicone-Session-Path": `/users/${message.author}/${message.requestId ? `${message.requestId}/` : ""}${message.id}/`,
   //           // "Helicone-Session-Name": `users-${message.author}`
   //         }
   //       });

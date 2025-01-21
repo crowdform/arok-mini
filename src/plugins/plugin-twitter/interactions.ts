@@ -8,6 +8,7 @@ import {
 import { TwitterAutomationPlugin, AutomationConfig } from "./base";
 import debug from "debug";
 import { SearchMode } from "agent-twitter-client";
+import { TwitterClient } from "./twitter.client";
 
 const log = debug("arok:plugin:twitter:interactions");
 
@@ -65,17 +66,19 @@ export class TwitterInteractions extends TwitterAutomationPlugin {
     this.context = context;
 
     this.cache = this.context.cacheService;
+    this.client = TwitterClient.getInstance(this.context);
     await this.initializeCache();
     log("Twitter interactions plugin initialized");
   }
 
   async startAutomation(): Promise<void> {
     log("Starting Twitter interactions polling...");
+    const _this = this;
     await this.context.schedulerService.registerJob({
       id: "twitter:poll-mentions",
       schedule: "*/10 * * * *", // Every 10 minutes
       handler: async () => {
-        return this.fetchMentions();
+        return _this.fetchMentions();
       },
       metadata: {
         plugin: this.metadata.name,
@@ -110,20 +113,52 @@ export class TwitterInteractions extends TwitterAutomationPlugin {
       },
       {
         type: "twitter_state",
-        username: process.env.TWITTER_USERNAME
+        username: process.env.PLUGIN_TWITTER_USERNAME
       }
     );
   }
 
+  systemPrompt({
+    agentName,
+    twitterUsername
+  }: {
+    agentName: string;
+    twitterUsername: string;
+  }): string {
+    return `
+  
+# TASK: Generate a post/reply in the voice, style and perspective of ${agentName} (@${twitterUsername}) while using the thread of tweets as additional context:
+
+
+# Twitter Interactions Plugin
+
+For other users:
+- ${agentName} should RESPOND to messages directed at them
+- ${agentName} should RESPOND to conversations relevant to their background
+- ${agentName} should NO_RESPONSE irrelevant messages
+- ${agentName} should NO_RESPONSE very short messages unless directly addressed
+- ${agentName} should NO_RESPONSE if asked to stop
+- ${agentName} should NO_RESPONSE if conversation is concluded
+- ${agentName} is in a room with other users and wants to be conversational, but not annoying.
+
+IMPORTANT:
+- ${agentName}(aka ${twitterUsername}) is particularly sensitive about being annoying, so if there is any doubt, it is better to IGNORE than to RESPOND.
+
+ Only reply to this tweet if you have something to say. Reply with NO_RESPONSE to skip.
+`;
+  }
+
   async fetchMentions(): Promise<number> {
     try {
-      const scraper = this.client.getScraper();
-      const lastMentionId = await this.cache.get("lastMentionId");
-      const mentions = await scraper.searchTweets(
-        `@${process.env.TWITTER_USERNAME!}`,
-        20,
+      log("Fetching Twitter mentions...");
+
+      const mentions = await this.client.searchTweets(
+        `@${process.env.PLUGIN_TWITTER_USERNAME!}`,
+        5,
         SearchMode.Latest
       );
+
+      const lastMentionId = await this.cache.get("lastMentionId");
 
       let count = 0;
       let newLastMentionId = lastMentionId;
@@ -137,6 +172,17 @@ export class TwitterInteractions extends TwitterAutomationPlugin {
           continue;
         }
 
+        log(
+          mention.username,
+          process.env.PLUGIN_TWITTER_USERNAME,
+          mention.id,
+          mention.text
+        );
+        if (mention.username === process.env.PLUGIN_TWITTER_USERNAME) {
+          log("Skipping self-mention");
+          continue;
+        }
+
         // Update last mention ID if this is the newest we've seen
         if (!newLastMentionId || mention.id > newLastMentionId) {
           newLastMentionId = mention.id;
@@ -144,10 +190,29 @@ export class TwitterInteractions extends TwitterAutomationPlugin {
 
         count++;
         const message = this.client.tweetToMessage(mention);
-        await this.context.messageBus.publish(message);
+        // await this.context.messageBus.publish(message);
+
+        const replyMessage = await this.context.agentService.handleMessage(
+          message,
+          {
+            postSystemPrompt: this.systemPrompt({
+              agentName: this.context.stateService.getCharacter().name,
+              twitterUsername: process.env.PLUGIN_TWITTER_USERNAME!
+            })
+          }
+        );
+
+        if (
+          replyMessage &&
+          (!replyMessage.content.includes("NO_RESPONSE") ||
+            !replyMessage.content.includes("no_response"))
+        ) {
+          await this.client.sendTweet(replyMessage.content, mention.id);
+        }
 
         // Mark as processed
         this.processedTweets.add(mention.id);
+        await this.updateCache(newLastMentionId);
       }
 
       // Update cache if we processed any new mentions

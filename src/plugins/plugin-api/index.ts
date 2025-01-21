@@ -5,7 +5,7 @@ import {
   PluginContext,
   PluginMetadata
 } from "../../services/plugins/types";
-import { Message } from "../../types/message.types";
+import { Message, ROUTING_PATTERNS } from "../../types/message.types";
 import express, { Request, Response } from "express";
 import debug from "debug";
 
@@ -14,7 +14,7 @@ const log = debug("arok:plugin:api");
 interface APIMessage {
   content: string;
   userId?: string;
-  parentId?: string;
+  requestId?: string;
   metadata?: Record<string, any>;
 }
 
@@ -85,7 +85,6 @@ export class APIPlugin implements ExtendedPlugin {
             }
           });
 
-          this.cleanupResponse(data.responseId);
           return { status: "sent", responseId: data.responseId };
         } catch (error) {
           console.error("Error sending API response:", error);
@@ -105,11 +104,6 @@ export class APIPlugin implements ExtendedPlugin {
     if (this.context.schedulerService.config.mode === "serverless") {
       this.setupHeartbeatEndpoint();
     }
-
-    // Subscribe to outgoing messages
-    this.context.messageBus.subscribeToOutgoing(
-      this.handleOutgoingMessage.bind(this)
-    );
 
     this.isInitialized = true;
     log("API plugin initialized");
@@ -153,8 +147,9 @@ export class APIPlugin implements ExtendedPlugin {
           content: apiMessage.content,
           author: apiMessage.userId || "api-user",
           createdAt: new Date().toISOString(),
+          type: "request",
           source: "api",
-          parentId: apiMessage.parentId,
+          requestId: apiMessage.requestId,
           metadata: {
             ...apiMessage.metadata,
             responseNeeded: true,
@@ -162,15 +157,17 @@ export class APIPlugin implements ExtendedPlugin {
           }
         };
 
-        this.pendingResponses.set(responseId, res);
-
-        const timeout = setTimeout(() => {
-          this.handleResponseTimeout(responseId);
-        }, this.RESPONSE_TIMEOUT);
-
-        this.responseTimeouts.set(responseId, timeout);
-
-        await this.context.messageBus.publish(message);
+        const responseMessage =
+          await this.context.agentService.handleMessage(message);
+        res.json({
+          status: "success",
+          data: {
+            messageId: responseMessage.id,
+            content: responseMessage.content,
+            createdAt: responseMessage.createdAt,
+            metadata: responseMessage.metadata
+          }
+        });
       } catch (error) {
         console.error("Error processing API message:", error);
         res.status(500).json({
@@ -179,57 +176,5 @@ export class APIPlugin implements ExtendedPlugin {
         });
       }
     });
-  }
-
-  private async handleOutgoingMessage(message: Message) {
-    if (message.source !== "api") return;
-
-    const responseId = message.metadata?.responseId;
-    if (!responseId) return;
-
-    const res = this.pendingResponses.get(responseId);
-    if (!res) return;
-
-    try {
-      res.json({
-        status: "success",
-        data: {
-          messageId: message.id,
-          content: message.content,
-          createdAt: message.createdAt,
-          metadata: message.metadata
-        }
-      });
-    } catch (error) {
-      console.error("Error sending API response:", error);
-      if (!res.headersSent) {
-        res.status(500).json({
-          status: "error",
-          error: "Failed to send response"
-        });
-      }
-    } finally {
-      this.cleanupResponse(responseId);
-    }
-  }
-
-  private handleResponseTimeout(responseId: string) {
-    const res = this.pendingResponses.get(responseId);
-    if (res) {
-      res.status(504).json({
-        status: "error",
-        error: "Request timed out"
-      });
-      this.cleanupResponse(responseId);
-    }
-  }
-
-  private cleanupResponse(responseId: string) {
-    this.pendingResponses.delete(responseId);
-    const timeout = this.responseTimeouts.get(responseId);
-    if (timeout) {
-      clearTimeout(timeout);
-      this.responseTimeouts.delete(responseId);
-    }
   }
 }

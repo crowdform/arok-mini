@@ -121,6 +121,7 @@ export class SchedulerService {
 
   private async handleJobComplete(result: JobResult): Promise<void> {
     const { jobId } = result;
+    log(`Job ${jobId} completed`);
 
     await Promise.all([
       this.cacheService.set(
@@ -160,16 +161,19 @@ export class SchedulerService {
       const lastRunKey = `${this.CACHE_PREFIX}${job.id}:lastRun`;
       const lastRun = await this.cacheService.get(lastRunKey);
 
-      if (!lastRun?.value) {
+      log(`Checking schedule for job ${job.id}`);
+      log(`Last run: ${lastRun}`);
+      if (!lastRun) {
         return true; // First run
       }
 
       const interval = parseExpression(job.schedule, {
-        currentDate: new Date(lastRun?.value),
+        currentDate: new Date(lastRun),
         tz: this.config.timeZone
       });
 
       const nextRun = interval.next().toDate();
+      log("Should run - ", nextRun <= currentTime);
       return nextRun <= currentTime;
     } catch (error) {
       console.error(`Error checking job schedule for ${job.id}:`, error);

@@ -3,7 +3,7 @@
 import { LLMService } from "./llm.service";
 import { MemoryService } from "./memory.service";
 import { MessageService } from "./message.service";
-import { Message } from "../types/message.types";
+import { Message, ROUTING_PATTERNS } from "../types/message.types";
 import { PluginManager } from "./plugins/plugin.manager";
 import { Plugin, ExtendedPlugin, PluginMetadata } from "./plugins/types";
 import { RateLimitService } from "./rate-limit.service";
@@ -69,16 +69,11 @@ export class AgentService {
       cacheService: this.cacheService,
       stateService: this.stateService,
       llmService: this.llm,
-      schedulerService: this.scheduler
+      schedulerService: this.scheduler,
+      agentService: this
     };
 
     this.pluginManager = new PluginManager(context);
-
-    this._messageBus.subscribe(this.handleMessage.bind(this));
-  }
-
-  get messageBus(): MessageService {
-    return this._messageBus;
   }
 
   async registerPlugin(plugin: Plugin | ExtendedPlugin): Promise<void> {
@@ -165,10 +160,15 @@ export class AgentService {
     return tools;
   }
 
-  private async handleMessage(message: Message): Promise<void> {
+  public async handleMessage(
+    message: Message,
+    config: { postSystemPrompt?: string } = {}
+  ): Promise<Message> {
     if (this.isShuttingDown) {
       log("Agent is shutting down, message rejected:", message.id);
-      return;
+      return this.sendResponse(message, {
+        content: "Rate limit exceeded. Please try again later."
+      });
     }
 
     try {
@@ -181,7 +181,7 @@ export class AgentService {
         message.id
       );
       if (!canProcess) {
-        await this.sendResponse(message, {
+        return this.sendResponse(message, {
           content: "Rate limit exceeded. Please try again later.",
           metadata: {
             type: "rate_limit",
@@ -190,7 +190,6 @@ export class AgentService {
             timestamp: Date.now()
           }
         });
-        return;
       }
 
       // Get conversation context
@@ -210,7 +209,8 @@ export class AgentService {
       } = await generateText({
         // @ts-ignore
         model: this.llmInstance(this.llm.llmInstanceModel),
-        system: this.stateService.buildSystemPrompt(state),
+        system:
+          this.stateService.buildSystemPrompt(state) + config?.postSystemPrompt,
         messages: [
           // @ts-ignore
           ...this.stateService.buildHistoryContext(state).reverse(),
@@ -238,6 +238,7 @@ export class AgentService {
             ...message,
             id: crypto.randomUUID(),
             content: text,
+            chainId: message.id,
             metadata: {
               usage,
               toolResults
@@ -246,13 +247,11 @@ export class AgentService {
         }
       });
 
-      // // Send final response
-      await this.sendResponse(message, {
+      return this.sendResponse(message, {
         content: answer,
-
         metadata: {
-          steps,
-          usage
+          usage,
+          steps
         }
       });
     } catch (error) {
@@ -260,125 +259,12 @@ export class AgentService {
 
       // Generate error response using schema
 
-      await this.handleError(
+      return this.handleError(
         message,
         error instanceof Error ? error : new Error(String(error))
       );
     }
   }
-
-  // private async saveMessageToHistory(result: {
-  //   originalMessage: Message;
-  //   text: string;
-  //   toolCalls?: Array<{
-  //     name: string;
-  //     args: Record<string, any>;
-  //   }>;
-  //   toolResults?: Array<any>;
-  //   usage?: {
-  //     promptTokens: number;
-  //     completionTokens: number;
-  //     totalTokens: number;
-  //   };
-  //   finishReason?: string;
-  //   stepCount?: number;
-  // }): Promise<void> {
-  //   const timestamp = Date.now();
-
-  //   try {
-  //     // Save original user message if not already saved
-  //     if (
-  //       originalMessage.author !== "agent" &&
-  //       originalMessage.author !== "system"
-  //     ) {
-  //       await this.memory.addMemory({
-  //         ...originalMessage,
-  //         metadata: {
-  //           ...originalMessage.metadata,
-  //           timestamp,
-  //           messageType: "user"
-  //         }
-  //       });
-  //     }
-
-  //     // If there were tool calls, save them and their results
-  //     if (result.toolCalls?.length) {
-  //       for (let i = 0; i < result.toolCalls.length; i++) {
-  //         const toolCall = result.toolCalls[i];
-  //         const toolResult = result.toolResults?.[i];
-
-  //         // Save tool call
-  //         await this.memory.addMemory({
-  //           id: crypto.randomUUID(),
-  //           content: JSON.stringify(toolCall.args),
-  //           author: "system",
-  //           createdAt: new Date().toISOString(),
-  //           source: "plugin",
-  //           parentId: originalMessage.id,
-  //           metadata: {
-  //             messageType: "tool_call",
-  //             toolName: toolCall.name,
-  //             stepIndex: i,
-  //             timestamp,
-  //             usage: result.usage
-  //           }
-  //         });
-
-  //         // Save tool result
-  //         await this.memory.addMemory({
-  //           id: crypto.randomUUID(),
-  //           content: JSON.stringify(toolResult),
-  //           author: "system",
-  //           createdAt: new Date().toISOString(),
-  //           source: "plugin",
-  //           parentId: originalMessage.id,
-  //           metadata: {
-  //             messageType: "tool_result",
-  //             toolName: toolCall.name,
-  //             stepIndex: i,
-  //             timestamp,
-  //             usage: result.usage
-  //           }
-  //         });
-  //       }
-  //     }
-
-  //     // Save the final AI response
-  //     await this.memory.addMemory({
-  //       id: crypto.randomUUID(),
-  //       content: result.text,
-  //       author: "agent",
-  //       createdAt: new Date().toISOString(),
-  //       source: originalMessage.source,
-  //       parentId: originalMessage.id,
-  //       metadata: {
-  //         messageType: "ai_response",
-  //         stepCount: result.stepCount || 1,
-  //         toolCalls: result.toolCalls,
-  //         toolResults: result.toolResults,
-  //         usage: result.usage,
-  //         finishReason: result.finishReason,
-  //         timestamp
-  //       }
-  //     });
-  //   } catch (error) {
-  //     console.error("Error saving message history:", error);
-  //     // Save error message
-  //     await this.memory.addMemory({
-  //       id: crypto.randomUUID(),
-  //       content: "Error saving message history",
-  //       author: "system",
-  //       createdAt: new Date().toISOString(),
-  //       source: "system",
-  //       parentId: originalMessage.id,
-  //       metadata: {
-  //         messageType: "error",
-  //         error: error instanceof Error ? error.message : String(error),
-  //         timestamp
-  //       }
-  //     });
-  //   }
-  // }
 
   private async executePluginWithTimeout(
     action: string,
@@ -404,14 +290,16 @@ export class AgentService {
   private async sendResponse(
     message: Message,
     result: { content: string; metadata?: any }
-  ) {
+  ): Promise<Message> {
     const response: Message = {
       id: crypto.randomUUID(),
       content: result.content,
       author: "agent",
-      participants: [message.author],
+      participants: message.participants,
       source: message.source,
-      parentId: message.id,
+      type: "response",
+      chainId: message.id,
+      requestId: message.id,
       createdAt: new Date().toISOString(),
       metadata: {
         ...message.metadata,
@@ -420,31 +308,28 @@ export class AgentService {
       }
     };
 
-    log("Sending response:", response);
-    await this.memory.addMemory(response);
-    await this._messageBus.send(response);
+    return response;
   }
 
-  private async handleError(message: Message, error: Error) {
+  private async handleError(message: Message, error: Error): Promise<Message> {
     const errorResponse: Message = {
       id: crypto.randomUUID(),
       content:
         "I encountered an error processing your request. Please try again.",
       author: "agent",
       participants: [message.author],
-
+      type: "event",
+      chainId: message.id,
       source: message.source,
       createdAt: new Date().toISOString(),
-      parentId: message.id,
+      requestId: message.id,
       metadata: {
         error: error.message,
         isError: true
       }
     };
 
-    log("Sending error response:", errorResponse);
-    await this.memory.addMemory(errorResponse);
-    await this._messageBus.send(errorResponse);
+    return errorResponse;
   }
 
   async shutdown(): Promise<void> {
@@ -466,7 +351,7 @@ export class AgentService {
       }
     }
 
-    this._messageBus.clearSubscriptions();
+    this._messageBus.clear();
     this.isStarted = false;
     log("Agent service shut down successfully");
   }

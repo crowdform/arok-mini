@@ -50,13 +50,13 @@ async function startServer() {
       model: "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo"
     };
     const llmInstance = createOpenAI({
-      ...togetherAiConfig
+      ...openaiConfig
     });
 
     const agent = new AgentService({
       characterConfig: character,
       llmInstance,
-      llmInstanceModel: togetherAiConfig.model,
+      llmInstanceModel: openaiConfig.model,
       schedulerConfig: {
         mode: "single-node",
         timeZone: "UTC",
@@ -67,9 +67,9 @@ async function startServer() {
     // Register plugins
     await agent.registerPlugin(new QueryPlugin());
     // await agent.registerPlugin(new TwitterRepliesPlugin());
-    await agent.registerPlugin(new TwitterTweetsPlugin());
+    // await agent.registerPlugin(new TwitterTweetsPlugin());
     await agent.registerPlugin(new APIPlugin({ app }));
-    // await agent.registerPlugin(new TwitterInteractions());
+    await agent.registerPlugin(new TwitterInteractions());
 
     console.log("Clients started successfully");
     // Basic health check endpoint

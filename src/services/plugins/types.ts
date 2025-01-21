@@ -7,6 +7,7 @@ import { CacheService } from "../cache.service";
 import { LLMService } from "../llm.service";
 import { StateService } from "../state.service";
 import { SchedulerService } from "../scheduler/scheduler.service";
+import { AgentService } from "../agent.service";
 
 export interface PluginContext {
   messageBus: MessageService;
@@ -15,6 +16,7 @@ export interface PluginContext {
   llmService: LLMService;
   stateService: StateService;
   schedulerService: SchedulerService;
+  agentService: AgentService;
 }
 
 export interface ActionSchema {
@@ -69,7 +71,6 @@ export interface BasePluginInterface {
   initialize(context: PluginContext): Promise<void>;
   start?(): Promise<void> | void;
   shutdown?(): Promise<void> | void;
-  handleMessage?(message: Message): Promise<void>;
 }
 
 // Base Plugin interface without method visibility constraints

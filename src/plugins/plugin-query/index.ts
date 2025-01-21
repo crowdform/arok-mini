@@ -159,8 +159,4 @@ export class QueryPlugin implements ExtendedPlugin {
     this.context = context;
     log("Query plugin initialized");
   }
-
-  async handleMessage?(message: Message): Promise<void> {
-    // Optional message handling logic
-  }
 }

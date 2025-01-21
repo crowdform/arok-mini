@@ -7,7 +7,7 @@ import {
 } from "../../services/plugins/types";
 import { TwitterAutomationPlugin, AutomationConfig } from "./base";
 import { Message } from "../../types/message.types";
-import { TwitterClient } from "./twitter.client";
+import { TwitterClient, Tweet } from "./twitter.client";
 import { sampleSize } from "lodash";
 import debug from "debug";
 
@@ -18,14 +18,6 @@ interface ReplyConfig extends AutomationConfig {
   maxRepliesPerTweet: number;
   searchTermRotationInterval: number;
   minEngagementScore: number;
-}
-
-interface Tweet {
-  id: string;
-  content: string;
-  author: string;
-  engagement: number;
-  timestamp: number;
 }
 
 export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
@@ -129,7 +121,7 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
         sampleSize(this.context.stateService.getCharacter().topics, 5).join(
           ", "
         );
-      const queryPrompt = `Generate strategic search terms for Twitter engagement based on topics: ${baseTopics}. DO NOT CALL GENERATE_SEARCH_TERMS but reply directly with the generated terms.`;
+      const queryPrompt = `Generate strategic search terms for Twitter engagement based on topics: ${baseTopics}. OUTPUT as a comma-separated list (no "). = search term 1, search term 2, ...`;
 
       const result = await this.queryPlugin(queryPrompt, {
         type: "search_term_generation"
@@ -166,6 +158,7 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
           id: crypto.randomUUID(),
           content: `SEARCH_TWEETS: ${term}`,
           author: "system",
+          type: "event",
           createdAt: new Date().toISOString(),
           source: "automated",
           metadata: {
@@ -175,27 +168,37 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
           }
         };
 
-        await this.context.messageBus.publish(searchMessage);
-        const searchResponse = await this.waitForAgentResponse(
-          searchMessage.id
-        );
-        const tweets: Tweet[] = JSON.parse(searchResponse.content).tweets || [];
+        // @ts-ignore
+        const searchTweets = await this.client.searchTweets(searchMessage);
+
+        if (!searchTweets || searchTweets.length === 0) {
+          log(`No tweets found for search term: ${term}`);
+          continue;
+        }
+        const tweets: Tweet[] = searchTweets;
 
         const relevantTweets = tweets
           .filter(
             (tweet) =>
+              tweet.id &&
+              tweet.likes &&
               !this.processedTweets.has(tweet.id) &&
-              tweet.engagement >= this.config.minEngagementScore
+              tweet.likes >= this.config.minEngagementScore
           )
-          .sort((a, b) => b.engagement - a.engagement);
+          // @ts-ignore
+          .sort((a, b) => b.likes - a.likes);
 
         for (const tweet of relevantTweets) {
+          if (tweet.id === undefined) {
+            continue;
+          }
           if (repliesGenerated >= data.maxReplies) break;
 
           const analysisMessage: Message = {
             id: crypto.randomUUID(),
-            content: `ANALYZE_TWEET: ${tweet.content}`,
+            content: `ANALYZE_TWEET and reply from ${tweet.username} at ${tweet.timeParsed}, with: ${tweet.text}`,
             author: "system",
+            type: "request",
             createdAt: new Date().toISOString(),
             source: "automated",
             metadata: {
@@ -205,18 +208,18 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
             }
           };
 
-          await this.context.messageBus.publish(analysisMessage);
-          const analysisResponse = await this.waitForAgentResponse(
-            analysisMessage.id
-          );
-          const analysis = JSON.parse(analysisResponse.content);
+          const analysisResponse =
+            await this.context.agentService.handleMessage(analysisMessage, {
+              postSystemPrompt: `Only reply to this tweet if you have something to say. Reply with NO_RESPONSE to skip.`
+            });
 
-          await this.sendToTwitter(analysis.reply, tweet.id, {
-            originalTweet: tweet,
-            analysis,
-            searchTerm: term,
-            replyType: "automated"
-          });
+          if (!analysisResponse?.content?.includes("NO_RESPONSE")) {
+            await this.sendToTwitter(analysisResponse.content, tweet.id, {
+              originalTweet: tweet,
+              searchTerm: term,
+              replyType: "automated"
+            });
+          }
 
           repliesGenerated++;
           this.processedTweets.add(tweet.id);

@@ -152,10 +152,11 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
       const contentMessage: Message = {
         id: crypto.randomUUID(),
         content: `Generate a ${style} tweet about: ${topics}. 
-          Make it engaging and informative while maintaining the character's voice. USE the QUERY (if available) plugin before answering. DO NOT CALL GENERATE_AND_POST plugin again but output.`,
+          Make it engaging and informative while maintaining the character's voice. USE the QUERY (if available) plugin before answering. Output only the Tweet content as a string, maximum 280 characters, never use hashtags or emojis.`,
         author: "system",
         createdAt: new Date().toISOString(),
         source: "automated",
+        type: "event",
         metadata: {
           type: "tweet_generation",
           topics,
@@ -164,8 +165,17 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
         }
       };
 
-      await this.context.messageBus.publish(contentMessage);
-      const response = await this.waitForAgentResponse(contentMessage.id);
+      const response = await this.context.agentService.handleMessage(
+        contentMessage,
+        {
+          postSystemPrompt: `Only reply to this tweet if you have something to say. Reply with NO_RESPONSE to skip.`
+        }
+      );
+
+      if (!response || response.content.includes("no_response")) {
+        log("Skipping tweet generation - no response");
+        return { status: "skipped", reason: "no_response" };
+      }
 
       // Send generated content to Twitter
       await this.sendToTwitter(response.content, undefined, {
@@ -256,7 +266,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
       id: "twitter:generate-tweets",
       schedule: this.config.schedule, // Every 72 minutes
       handler: async () => {
-        // return mainLoop();
+        return mainLoop();
       },
       metadata: {
         plugin: this.metadata.name,

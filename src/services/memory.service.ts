@@ -32,16 +32,17 @@ export class MemoryService {
         roomId: message.id,
         participants: [message.author],
         author: message.author,
+        type: message.type,
         content: message.content,
         createdAt: new Date().toISOString(),
-        parentId: message.parentId,
+        requestId: message.requestId,
         source: message.source,
         metadata: message.metadata
       };
 
       // If this is a reply, add original author to participants
-      if (message.parentId) {
-        const parentEntry = await this.getEntry(message.parentId);
+      if (message.requestId) {
+        const parentEntry = await this.getEntry(message.requestId);
         if (
           parentEntry &&
           !entry.participants.includes(parentEntry.participants[0])
@@ -111,7 +112,7 @@ export class MemoryService {
       // Get all replies referencing this root
       const q = query(
         collection(db, this.COLLECTION),
-        where("parentId", "==", rootId),
+        where("requestId", "==", rootId),
         orderBy("createdAt", "asc")
       );
 

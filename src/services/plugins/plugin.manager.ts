@@ -23,10 +23,6 @@ export class PluginManager {
       await plugin.initialize(this.context);
       this.plugins.set(plugin.metadata.name, plugin);
 
-      if (plugin.handleMessage) {
-        this.context.messageBus.subscribe(plugin.handleMessage.bind(plugin));
-      }
-
       log(`Plugin ${plugin.metadata.name} registered successfully`);
     } catch (error) {
       console.error(
@@ -100,7 +96,8 @@ export class PluginManager {
       author: `plugin:${pluginName}`,
       createdAt: new Date().toISOString(),
       source: "plugin",
-      parentId: message.id,
+      type: "response",
+      requestId: message.id,
       metadata: {
         pluginName,
         intent,
