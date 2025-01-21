@@ -3,6 +3,9 @@
 import fs from "fs/promises";
 import path from "path";
 import debug from "debug";
+// @ts-ignore
+// KEEP FOR TSC COPY
+import defaultCharacter from "../characters/default.json";
 
 const log = debug("arok:character-loader");
 
