@@ -42,8 +42,8 @@ export interface ActionMetadata {
   schema: ActionSchema;
   scope?: string[];
   examples: {
-    input: string;
-    output: string;
+    input: string | Record<string, any>;
+    output: string | Record<string, any>;
   }[];
 }
 

@@ -130,14 +130,12 @@ ${state.character.style.chat.join("\n")}`;
   ): Array<{ role: string; content: string }> {
     const contextMessages = [];
 
-    console.log(state.recentMessages);
-
     // Add recent messages
     for (const msg of state.recentMessages) {
       const author = msg?.participants?.[0] || "assistant";
       contextMessages.push({
         role: author === "agent" ? "assistant" : "user",
-        content: `${author}: ${msg.content}`
+        content: `${msg.content}`
       });
     }
 

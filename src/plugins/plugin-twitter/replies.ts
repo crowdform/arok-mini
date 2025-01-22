@@ -79,7 +79,7 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
 
   config: ReplyConfig = {
     enabled: true,
-    schedule: "*/15 * * * *",
+    schedule: "*/20 * * * *",
     maxRetries: 3,
     timeout: 30000,
     maxRepliesPerRun: 5,

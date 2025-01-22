@@ -15,7 +15,7 @@ import { SchedulerService } from "./scheduler/scheduler.service";
 import type { SchedulerConfig } from "./scheduler/types";
 import { generateText, tool, jsonSchema } from "ai";
 import type { OpenAIProvider } from "@ai-sdk/openai";
-
+import { AIResponseParser } from "../utils";
 const log = debug("arok:agent-service");
 
 export interface AgentConfig {
@@ -41,6 +41,7 @@ export class AgentService {
   private readonly stateService: StateService;
   private readonly llmInstance: OpenAIProvider;
   private tools: Record<string, any> = {};
+  public responseParser: typeof AIResponseParser;
 
   constructor(config: AgentConfig) {
     this.memory = new MemoryService();
@@ -62,6 +63,8 @@ export class AgentService {
       },
       this.cacheService
     );
+
+    this.responseParser = AIResponseParser;
 
     const context = {
       messageBus: this._messageBus,
