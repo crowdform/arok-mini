@@ -141,11 +141,11 @@ export class APIPlugin implements ExtendedPlugin {
         const message: Message = {
           id: crypto.randomUUID(),
           content:
-            "#Notification Event:\n```json" +
+            "#Notification Event:\n\n```json" +
             JSON.stringify(apiMessage) +
             "```" +
             `\n\n
-            Given the above now determine how to handle the event, by function calling or posting content.
+            Given the above information, take the one main topic and generate and post content about it in the character style.
             `,
           author: apiMessage.userId || "event-system-user1",
           createdAt: new Date().toISOString(),
