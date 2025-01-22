@@ -140,7 +140,8 @@ export class AgentService {
 
         log(`Plugin-${actionName}`, (plugin as any).actions);
         tools[actionName] = tool({
-          // Convert Zod schema to parameters object
+          // Convert Zod schema to parameters objec
+          description: actionMeta.description,
           // @ts-ignore
           parameters: jsonSchema(actionMeta.schema),
           // Wrapper function to handle tool execution
@@ -165,7 +166,7 @@ export class AgentService {
 
   public async handleMessage(
     message: Message,
-    config: { postSystemPrompt?: string } = {}
+    config: { postSystemPrompt?: string; pluginScope?: string[] } = {}
   ): Promise<Message> {
     if (this.isShuttingDown) {
       log("Agent is shutting down, message rejected:", message.id);

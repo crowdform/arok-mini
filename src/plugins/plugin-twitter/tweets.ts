@@ -61,23 +61,24 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
           }
         ]
       },
-      POST_TWEET: {
+      POST_CONTENT: {
         scope: ["*"],
-        description: "Post a tweet directly with provided content",
+        description: `Post to content to platforms directly.`,
         schema: {
           type: "object",
           properties: {
-            tweetContent: {
+            postContent: {
               type: "string",
-              description: "The content to tweet (max 280 characters)"
+              description:
+                "Post content (max 280 characters), lowercase, no hashtags or emojis in the content."
             }
           },
-          required: ["tweetContent"]
+          required: ["postContent"]
         },
         examples: [
           {
-            input: { tweetContent: "Hello world!" },
-            output: "Tweet posted successfully"
+            input: { postContent: "Hello world!" },
+            output: "Content posted successfully"
           }
         ]
       },
@@ -141,9 +142,9 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
         return this.generateAndPostTweet(data.topics);
       }
     },
-    POST_TWEET: {
-      execute: async (data: { tweetContent: string }) => {
-        return this.postTweet(data.tweetContent);
+    POST_CONTENT: {
+      execute: async (data: { postContent: string }) => {
+        return this.postTweet(data.postContent);
       }
     }
   };
@@ -357,7 +358,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
         id: crypto.randomUUID(),
         content: `Generate a tweet about: ${topics.join(", ")}. 
           Make it engaging and informative. Use the QUERY plugin first.
-          Output only the Tweet content, do not call the POST_TWEET maximum 280 characters.`,
+          Output only the Tweet content, do not call the POST_CONTENT maximum 280 characters. Reminder never use hashtags or emojis in the Twitter post content.`,
         author: "system",
         createdAt: new Date().toISOString(),
         source: "automated",
@@ -372,7 +373,18 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
       const response = await this.context.agentService.handleMessage(
         contentMessage,
         {
-          postSystemPrompt: `You can decide not to tweet by responding with "NO_RESPONSE".`
+          postSystemPrompt: `You can decide not to tweet by responding with "NO_RESPONSE".
+          
+          # Example Post Response Style:
+
+          ${this.context.stateService
+            .getRandomElements(
+              this.context.stateService.getCharacter().postExamples,
+              5
+            )
+            .map((ex) => `> ${ex}`)
+            .join("\n")}
+          ` // Add post response examples
         }
       );
 

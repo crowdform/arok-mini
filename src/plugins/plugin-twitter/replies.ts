@@ -79,7 +79,7 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
 
   config: ReplyConfig = {
     enabled: true,
-    schedule: "*/20 * * * *",
+    schedule: "*/50 * * * *",
     maxRetries: 3,
     timeout: 30000,
     maxRepliesPerRun: 5,
@@ -196,8 +196,9 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
 
           const analysisMessage: Message = {
             id: crypto.randomUUID(),
-            content: `ANALYZE_TWEET and reply from ${tweet.username} at ${tweet.timeParsed}, with: ${tweet.text}`,
+            content: `Create a reply to from ${tweet.username} at ${tweet.timeParsed}, saying: ${tweet.text}. `,
             author: "system",
+            participants: (tweet.userId && [tweet.userId]) || [],
             type: "request",
             createdAt: new Date().toISOString(),
             source: "automated",
@@ -210,7 +211,7 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
 
           const analysisResponse =
             await this.context.agentService.handleMessage(analysisMessage, {
-              postSystemPrompt: `Only reply to this tweet if you have something to say. Reply with NO_RESPONSE to skip.`
+              postSystemPrompt: `Only reply to this tweet if you have something to say. Reply with NO_RESPONSE to skip. Use the query plugin before replying to generate a response.`
             });
 
           if (!analysisResponse?.content?.includes("NO_RESPONSE")) {

@@ -38,10 +38,11 @@ async function startServer() {
     const openaiConfig = {
       apiKey: process.env.OPENAI_API_KEY,
       baseURL: "https://oai.helicone.ai/v1",
-      defaultHeaders: {
-        "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`
+      headers: {
+        "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
+        "Helicone-Property-Name": `${process.env.PLUGIN_TWITTER_USERNAME}/default`
       },
-      model: "gpt-4-turbo-preview"
+      model: "gpt-4-turbo"
     };
 
     const togetherAiConfig = {
@@ -67,7 +68,7 @@ async function startServer() {
     // Register plugins
     await agent.registerPlugin(new QueryPlugin());
     // await agent.registerPlugin(new TwitterRepliesPlugin());
-    // await agent.registerPlugin(new TwitterTweetsPlugin());
+    await agent.registerPlugin(new TwitterTweetsPlugin());
     await agent.registerPlugin(new APIPlugin({ app }));
     await agent.registerPlugin(new TwitterInteractions());
 

@@ -35,7 +35,6 @@ interface InteractionConfig {
 interface InteractionsConfig extends AutomationConfig {
   maxRepliesPerRun: number;
   maxRepliesPerTweet: number;
-  minEngagementScore: number;
 }
 
 export class TwitterInteractions extends TwitterAutomationPlugin {
@@ -74,7 +73,7 @@ export class TwitterInteractions extends TwitterAutomationPlugin {
   private interactionConfig: InteractionConfig = {
     maxThreadDepth: 5,
     threadTimeout: 24 * 60 * 60 * 1000, // 24 hours
-    minEngagementScore: 0.6,
+    minEngagementScore: 0,
     noResponseKeywords: [
       "stop",
       "quiet",
@@ -85,7 +84,9 @@ export class TwitterInteractions extends TwitterAutomationPlugin {
       "blocked",
       "reported",
       "spam",
-      "bot"
+      "bot",
+      "no_reply",
+      "no_response"
     ],
     skipProbability: 0.2 // 20% chance to randomly skip
   };
@@ -96,8 +97,7 @@ export class TwitterInteractions extends TwitterAutomationPlugin {
     maxRetries: 3,
     timeout: 30000,
     maxRepliesPerRun: 5,
-    maxRepliesPerTweet: 1,
-    minEngagementScore: 0
+    maxRepliesPerTweet: 1
   };
 
   actions: Record<string, PluginAction> = {
@@ -144,7 +144,7 @@ export class TwitterInteractions extends TwitterAutomationPlugin {
     log("Starting Twitter interactions polling...");
     await this.context.schedulerService.registerJob({
       id: "twitter:poll-mentions",
-      schedule: "*/10 * * * *", // Every 10 minutes
+      schedule: this.config.schedule, // Every 10 minutes
       handler: async () => {
         return this.fetchMentions();
       },
@@ -163,7 +163,13 @@ export class TwitterInteractions extends TwitterAutomationPlugin {
     twitterUsername: string;
   }): string {
     return `
-# TASK: Generate a post/reply in the voice, style and perspective of ${agentName} (@${twitterUsername}), always use the query plugin to get more information before answering. Never use hashtags or emojis in the response.
+# TASK: Generate a post/reply in the voice, style and perspective of ${agentName} (@${twitterUsername}).
+
+## Step to follow:
+
+1. Decide if should be responded too
+2. Use the Query the plugin to get more information about the topic - market data, news, etc.
+3. Answer with just the tweet content using all information. Never use hashtags or emojis in the response.
 
 # Thread Control Instructions
 - Reply with "NO_RESPONSE" to skip responding to this message
@@ -188,7 +194,17 @@ IMPORTANT:
 
 Only reply to this tweet if you have something meaningful to say. 
 Reply with NO_RESPONSE to skip this message.
-Reply with MUTE_THREAD to stop all responses in this conversation.`;
+Reply with MUTE_THREAD to stop all responses in this conversation.
+
+# Example Post Response Style:
+
+${this.context.stateService
+  .getRandomElements(this.context.stateService.getCharacter().postExamples, 5)
+  .map((ex) => `> ${ex}`)
+  .join("\n")}
+  
+  
+  Reminder never use hashtags or emojis in the Twitter content.`;
   }
 
   async shouldRespond(
@@ -299,6 +315,7 @@ Reply with MUTE_THREAD to stop all responses in this conversation.`;
 
         // Skip if we've already processed this tweet
         if (this.processedTweets.has(mention.id)) {
+          log("Skipping processed mention", mention.id);
           continue;
         }
 

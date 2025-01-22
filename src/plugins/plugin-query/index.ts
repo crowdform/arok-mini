@@ -126,7 +126,8 @@ export class QueryPlugin implements ExtendedPlugin {
     actions: {
       QUERY: {
         scope: ["*"],
-        description: "Get information about any specific topic",
+        description:
+          "ALWAYS USE - Query Knowledge (your BRAIN) - always use to begin. Retrieves information about various topics, trends, live prices, $cashtags, tokens, projects, market analysis and should be used for all in depth queries",
         schema: {
           type: "object",
           properties: {

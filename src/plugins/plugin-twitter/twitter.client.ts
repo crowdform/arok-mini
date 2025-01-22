@@ -246,6 +246,10 @@ export class TwitterClient {
   async sendTweet(content: string, replyToId?: string): Promise<boolean> {
     await this.validateSession();
     try {
+      if (content.includes("#")) {
+        throw new Error("Posting tweets with hashtags is not allowed");
+      }
+
       await this.scraper.sendTweet(content, replyToId);
       return true;
     } catch (error) {
@@ -291,6 +295,7 @@ export class TwitterClient {
       createdAt: tweet?.timestamp
         ? new Date(+tweet?.timestamp).toISOString()
         : new Date().toISOString(),
+      participants: (tweet.userId && [tweet.userId]) || [],
       source: "twitter",
       type: "request",
       requestId: tweet.conversationId,

@@ -174,18 +174,18 @@ export class SchedulerService {
       });
 
       const nextRun = interval.next().toDate();
-      log(
-        "Should run - ",
-        job.schedule,
-        "Last run: ",
-        lastRun,
-        "Next run: ",
-        nextRun,
-        "Current time: ",
-        currentTime,
-        "run now: ",
-        nextRun <= currentTime
-      );
+      // log(
+      //   "Should run - ",
+      //   job.schedule,
+      //   "Last run: ",
+      //   lastRun,
+      //   "Next run: ",
+      //   nextRun,
+      //   "Current time: ",
+      //   currentTime,
+      //   "run now: ",
+      //   nextRun <= currentTime
+      // );
       return nextRun <= currentTime;
     } catch (error) {
       console.error(`Error checking job schedule for ${job.id}:`, error);

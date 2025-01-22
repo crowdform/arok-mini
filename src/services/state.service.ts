@@ -121,7 +121,14 @@ export class StateService {
 Date and time: ${new Date().toLocaleString()}
 
 # When a final response is needed, response in the character style:
+
+## Post Examples
+${state.randomExamples.map((ex) => `> ${ex}`).join("\n")}
+
+## Post Style
 ${state.character.style.all.join("\n")}
+
+## Chat Style
 ${state.character.style.chat.join("\n")}`;
   }
 
@@ -132,7 +139,7 @@ ${state.character.style.chat.join("\n")}`;
 
     // Add recent messages
     for (const msg of state.recentMessages) {
-      const author = msg?.participants?.[0] || "assistant";
+      const author = msg.author || msg?.participants?.[0] || "assistant";
       contextMessages.push({
         role: author === "agent" ? "assistant" : "user",
         content: `${msg.content}`
@@ -226,7 +233,7 @@ ${actionDescriptions}`;
 
   private async getRecentMessages(message: Message): Promise<Message[]> {
     try {
-      return await this.memoryService.getRecentContext(message.author, 5);
+      return await this.memoryService.getRecentContext(message.author, 15);
     } catch (error) {
       log("Error getting recent messages:", error);
       return [message];
@@ -237,7 +244,7 @@ ${actionDescriptions}`;
     return array[Math.floor(Math.random() * array.length)];
   }
 
-  private getRandomElements<T>(array: T[], count: number): T[] {
+  public getRandomElements<T>(array: T[], count: number): T[] {
     return [...array].sort(() => 0.5 - Math.random()).slice(0, count);
   }
 
