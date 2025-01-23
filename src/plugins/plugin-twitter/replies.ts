@@ -11,6 +11,8 @@ import { TwitterClient, Tweet } from "./twitter.client";
 import { sampleSize } from "lodash";
 import debug from "debug";
 
+import { SearchMode } from "agent-twitter-client";
+
 const log = debug("arok:plugin:twitter-replies");
 
 interface ReplyConfig extends AutomationConfig {
@@ -121,7 +123,7 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
         sampleSize(this.context.stateService.getCharacter().topics, 5).join(
           ", "
         );
-      const queryPrompt = `Generate strategic search terms for Twitter engagement based on topics: ${baseTopics}. OUTPUT as a comma-separated list (no "). = search term 1, search term 2, ...`;
+      const queryPrompt = `Generate strategic search terms for Twitter engagement based on topics: ${baseTopics}. OUTPUT ONE WORD per topic as a comma-separated list (no "). = searchterm1, searchterm2, ...`;
 
       const result = await this.queryPlugin(queryPrompt, {
         type: "search_term_generation"
@@ -154,22 +156,8 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
       for (const term of data.searchTerms) {
         if (repliesGenerated >= data.maxReplies) break;
 
-        const searchMessage: Message = {
-          id: crypto.randomUUID(),
-          content: `SEARCH_TWEETS: ${term}`,
-          author: "system",
-          type: "event",
-          createdAt: new Date().toISOString(),
-          source: "automated",
-          metadata: {
-            type: "twitter_search",
-            searchTerm: term,
-            requiresProcessing: true
-          }
-        };
-
         // @ts-ignore
-        const searchTweets = await this.client.searchTweets(searchMessage);
+        const searchTweets = await this.client.searchTweets(term, 5);
 
         if (!searchTweets || searchTweets.length === 0) {
           log(`No tweets found for search term: ${term}`);
@@ -215,11 +203,7 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
             });
 
           if (!analysisResponse?.content?.includes("NO_RESPONSE")) {
-            await this.sendToTwitter(analysisResponse.content, tweet.id, {
-              originalTweet: tweet,
-              searchTerm: term,
-              replyType: "automated"
-            });
+            await this.client.sendTweet(analysisResponse.content, tweet.id);
           }
 
           repliesGenerated++;
@@ -250,7 +234,12 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
 
   protected async startAutomation(): Promise<void> {
     log("Started reply automation");
-
+    const { searchTerms } = await this.executeGenerateSearchTerms({});
+    log("Generated search terms:", searchTerms);
+    return this.executeFindAndReply({
+      searchTerms,
+      maxReplies: this.config.maxRepliesPerRun
+    });
     await this.context.schedulerService.registerJob({
       id: "twitter:generate-replies",
       schedule: this.config.schedule, // Every 15 minutes

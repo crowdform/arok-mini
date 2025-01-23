@@ -48,6 +48,9 @@ async function startServer() {
     const togetherAiConfig = {
       apiKey: process.env.TOGETHER_API_KEY,
       baseURL: `https://together.helicone.ai/v1/${process.env.HELICONE_API_KEY}`,
+      headers: {
+        "Helicone-Property-Name": `${process.env.PLUGIN_TWITTER_USERNAME}/default`
+      },
       model: "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo"
     };
     const llmInstance = createOpenAI({
@@ -67,7 +70,7 @@ async function startServer() {
 
     // Register plugins
     await agent.registerPlugin(new QueryPlugin());
-    // await agent.registerPlugin(new TwitterRepliesPlugin());
+    await agent.registerPlugin(new TwitterRepliesPlugin());
     await agent.registerPlugin(new TwitterTweetsPlugin());
     await agent.registerPlugin(new APIPlugin({ app }));
     await agent.registerPlugin(new TwitterInteractions());

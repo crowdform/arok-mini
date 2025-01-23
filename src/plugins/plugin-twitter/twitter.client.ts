@@ -227,18 +227,22 @@ export class TwitterClient {
   async searchTweets(
     query: string,
     count: number = 10,
-    mode: SearchMode = SearchMode.Latest
+    mode: SearchMode = SearchMode.Top
   ): Promise<Tweet[]> {
     await this.validateSession();
     try {
+      log(`Searching tweets for query: ${query}`);
       const tweets: Tweet[] = [];
-      for await (const tweet of this.scraper.searchTweets(query, count, mode)) {
+      const results = await this.scraper.fetchSearchTweets(query, count, mode);
+      for (const tweet of results.tweets) {
         tweets.push(tweet);
       }
 
       return tweets;
     } catch (error) {
       console.error("Error searching tweets:", error);
+      // @ts-ignore
+      log(error?.data);
       return [];
     }
   }
