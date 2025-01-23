@@ -13,3 +13,4 @@ firestore.rules
 functions
 _.env
 .env.local
+.env.production

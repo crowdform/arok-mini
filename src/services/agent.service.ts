@@ -237,11 +237,24 @@ export class AgentService {
           finishReason
           // @ts-ignore
         }) => {
+          log(toolResults);
+
+          const formatToolResult = (toolResults: any) => {
+            const firstResult = toolResults?.[0];
+
+            if (!firstResult) {
+              return "";
+            }
+
+            const { toolName, result } = firstResult;
+
+            return `Plugin called ${toolName} with result: ${JSON.stringify(result)}`;
+          };
           // Save conversation history
           await this.memory.addMemory({
             ...message,
             id: crypto.randomUUID(),
-            content: text,
+            content: text || formatToolResult(toolResults),
             chainId: message.id,
             metadata: {
               usage,

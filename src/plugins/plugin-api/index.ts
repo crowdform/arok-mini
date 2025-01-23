@@ -165,8 +165,9 @@ export class APIPlugin implements ExtendedPlugin {
             postSystemPrompt: `\n   \n #Notification Events are incoming data, that you should determine how to handle. Always keep reply in character.
               \n
               # Example handling: \n
-              If new momentum, news, snippet is detected, call POST_CONTENT function with content. \n 
+              If new content, news, market movement is detected, call POST_CONTENT function with content. \n 
               Do not repeat yourself so check the previous context for the last actions and posts.
+              Focus on one topic from the notification event.
               Reminder never use hashtags or emojis in the post content.\n
             `
           }

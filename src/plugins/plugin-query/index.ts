@@ -34,7 +34,9 @@ class QueryAction implements PluginAction<QueryActionData, QueryActionResult> {
     context?: ActionExecutionContext
   ): Promise<QueryActionResult> {
     try {
-      const query = data.context ? `${data.topic} ${data.context}` : data.topic;
+      const query = data.context
+        ? `Topic - ${data.topic} \nContext - ${data.context}`
+        : data.topic;
       log(`Executing query: ${query}`);
 
       const responseData = await this.fetchData(query);
@@ -144,8 +146,14 @@ export class QueryPlugin implements ExtendedPlugin {
         },
         examples: [
           {
-            input: "Tell me about Base chain activity",
-            output: "Retrieving Base chain information..."
+            input: {
+              topic: "Base chain activity",
+              context: "What is base chain activity?"
+            },
+            output: {
+              data: "Base chain activity is a term used to describe the...",
+              timestamp: 1632180375000
+            }
           }
         ]
       }

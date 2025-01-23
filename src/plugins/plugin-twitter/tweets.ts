@@ -201,7 +201,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
       id: "twitter:post-tweets",
       schedule: "0 */3 * * *", // Every 3hours
       handler: async () => {
-        const topics = await this.getRelevantTopics(2);
+        const topics = await this.getRelevantTopics(1);
         return this.generateAndPostTweet(topics.map((t) => t.topic));
       },
       metadata: {

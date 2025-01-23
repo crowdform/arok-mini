@@ -243,14 +243,22 @@ export class TwitterClient {
     }
   }
 
+  stripHashtags(text: string) {
+    return text.replace(/#\w+\s*/g, "").trim();
+  }
+
   async sendTweet(content: string, replyToId?: string): Promise<boolean> {
     await this.validateSession();
     try {
-      if (content.includes("#")) {
+      const strippedContent = this.stripHashtags(content);
+      if (strippedContent.includes("#")) {
         throw new Error("Posting tweets with hashtags is not allowed");
       }
+      if (strippedContent.includes("error")) {
+        throw new Error("Posting tweets with error is not allowed");
+      }
 
-      await this.scraper.sendTweet(content, replyToId);
+      await this.scraper.sendTweet(strippedContent, replyToId);
       return true;
     } catch (error) {
       console.error("Error sending tweet:", error);
