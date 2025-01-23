@@ -167,6 +167,7 @@ export class APIPlugin implements ExtendedPlugin {
               # Example handling: \n
               If new content, news, market movement is detected, call POST_CONTENT function with content. \n 
               Do not repeat yourself so check the previous context for the last actions and posts.
+              Do not reply but call functions in-order to route this request to the correct function.
               Focus on one topic from the notification event.
               Reminder never use hashtags or emojis in the post content.\n
             `

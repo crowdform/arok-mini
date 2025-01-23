@@ -11,8 +11,6 @@ import { TwitterClient, Tweet } from "./twitter.client";
 import { sampleSize } from "lodash";
 import debug from "debug";
 
-import { SearchMode } from "agent-twitter-client";
-
 const log = debug("arok:plugin:twitter-replies");
 
 interface ReplyConfig extends AutomationConfig {
@@ -182,6 +180,14 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
           }
           if (repliesGenerated >= data.maxReplies) break;
 
+          // First check if we should interact with this tweet
+          const shouldInteract =
+            await this.interactionControl.shouldInteract(tweet);
+          if (!shouldInteract.interact) {
+            log(`Skipping tweet ${tweet.id}: ${shouldInteract.reason}`);
+            continue;
+          }
+
           const analysisMessage: Message = {
             id: crypto.randomUUID(),
             content: `Create a reply to from ${tweet.username} at ${tweet.timeParsed}, saying: ${tweet.text}. `,
@@ -199,16 +205,36 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
 
           const analysisResponse =
             await this.context.agentService.handleMessage(analysisMessage, {
-              postSystemPrompt: `Only reply to this tweet if you have something to say. Reply with NO_RESPONSE to skip. Use the query plugin before replying to generate a response.`
+              postSystemPrompt: this.interactionControl.systemPrompt({
+                agentName: this.context.stateService.getCharacter().name,
+                twitterUsername: process.env.PLUGIN_TWITTER_USERNAME!
+              })
             });
+          // Check if we should post the AI response
+          const controlCheck =
+            await this.interactionControl.shouldInteractWithAIOutput(
+              tweet,
+              analysisResponse.content
+            );
 
-          if (!analysisResponse?.content?.includes("NO_RESPONSE")) {
+          if (controlCheck.interact) {
             await this.client.sendTweet(analysisResponse.content, tweet.id);
-          }
+            repliesGenerated++;
+            this.processedTweets.add(tweet.id);
+            processedThisRun.push(tweet.id);
 
-          repliesGenerated++;
-          this.processedTweets.add(tweet.id);
-          processedThisRun.push(tweet.id);
+            // Mark interaction in control system
+            if (tweet.conversationId) {
+              await this.interactionControl.processInteraction(
+                tweet.conversationId
+              );
+            }
+          } else {
+            log(
+              `Skipping AI response for tweet ${tweet.id}: ${controlCheck.reason}`
+            );
+            this.processedTweets.add(tweet.id);
+          }
 
           await new Promise((resolve) => setTimeout(resolve, 2000));
         }
@@ -219,6 +245,7 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
         const toRemove = tweetsArray.slice(0, tweetsArray.length - 1000);
         toRemove.forEach((tweetId) => this.processedTweets.delete(tweetId));
       }
+      await this.interactionControl.cleanupControls();
 
       return {
         status: "completed",
@@ -234,12 +261,7 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
 
   protected async startAutomation(): Promise<void> {
     log("Started reply automation");
-    const { searchTerms } = await this.executeGenerateSearchTerms({});
-    log("Generated search terms:", searchTerms);
-    return this.executeFindAndReply({
-      searchTerms,
-      maxReplies: this.config.maxRepliesPerRun
-    });
+
     await this.context.schedulerService.registerJob({
       id: "twitter:generate-replies",
       schedule: this.config.schedule, // Every 15 minutes

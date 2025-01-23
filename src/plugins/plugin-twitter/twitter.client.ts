@@ -227,7 +227,7 @@ export class TwitterClient {
   async searchTweets(
     query: string,
     count: number = 10,
-    mode: SearchMode = SearchMode.Top
+    mode: SearchMode = SearchMode.Latest
   ): Promise<Tweet[]> {
     await this.validateSession();
     try {

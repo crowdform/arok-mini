@@ -320,6 +320,19 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
         };
       }
 
+      // Check AI response against interaction control
+      const controlCheck =
+        await this.interactionControl.detectControlResponse(content);
+      if (!controlCheck.shouldPost) {
+        log("Control check failed:", controlCheck.reason);
+        return {
+          status: "skipped",
+          timestamp: this.lastTweetTime,
+          content,
+          reason: controlCheck.reason || "AI response contains control keywords"
+        };
+      }
+
       // Send to Twitter
       await this.client.sendTweet(content);
       this.lastTweetTime = Date.now();
@@ -388,11 +401,16 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
         }
       );
 
-      if (response.content.includes("NO_RESPONSE")) {
+      // Check AI response against interaction control
+      const controlCheck = await this.interactionControl.detectControlResponse(
+        response.content
+      );
+      if (!controlCheck.shouldPost) {
+        log("Control check failed:", controlCheck.reason);
         return {
           status: "skipped",
           topics,
-          reason: "Agent chose not to respond"
+          reason: controlCheck.reason || "AI response contains control keywords"
         };
       }
 

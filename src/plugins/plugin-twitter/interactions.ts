@@ -117,7 +117,7 @@ export class TwitterInteractions extends TwitterAutomationPlugin {
       id: "twitter:cleanup-threads",
       schedule: "0 * * * *", // Run hourly
       handler: async () => {
-        return this.cleanupThreadControls();
+        return this.interactionControl.cleanupControls();
       },
       metadata: {
         plugin: this.metadata.name,
@@ -155,146 +155,6 @@ export class TwitterInteractions extends TwitterAutomationPlugin {
     });
   }
 
-  systemPrompt({
-    agentName,
-    twitterUsername
-  }: {
-    agentName: string;
-    twitterUsername: string;
-  }): string {
-    return `
-# TASK: Generate a post/reply in the voice, style and perspective of ${agentName} (@${twitterUsername}).
-
-## Step to follow:
-
-1. Decide if should be responded too
-2. Use the Query the plugin to get more information about the topic - market data, news, etc.
-3. Answer with just the tweet content using all information. Never use hashtags or emojis in the response.
-
-# Thread Control Instructions
-- Reply with "NO_RESPONSE" to skip responding to this message
-- Reply with "MUTE_THREAD" to stop all future responses in this conversation thread
-- ${agentName} should detect when users want to end the conversation and use MUTE_THREAD
-- ${agentName} should MUTE_THREAD if the conversation becomes unproductive or hostile
-
-# Interaction Guidelines
-For other users:
-- ${agentName} should RESPOND to messages directly addressed to them
-- ${agentName} should RESPOND to conversations relevant to their background
-- ${agentName} should NO_RESPONSE irrelevant messages
-- ${agentName} should NO_RESPONSE very short messages unless directly addressed
-- ${agentName} should MUTE_THREAD if asked to stop
-- ${agentName} should MUTE_THREAD if conversation is concluded
-- ${agentName} is in a room with other users and wants to be conversational, but not annoying
-
-IMPORTANT:
-- ${agentName} (aka ${twitterUsername}) is particularly sensitive about being annoying
-- If there is any doubt, use NO_RESPONSE rather than respond
-- Use MUTE_THREAD to permanently stop responding to a conversation thread
-
-Only reply to this tweet if you have something meaningful to say. 
-Reply with NO_RESPONSE to skip this message.
-Reply with MUTE_THREAD to stop all responses in this conversation.
-
-# Example Post Response Style:
-
-${this.context.stateService
-  .getRandomElements(this.context.stateService.getCharacter().postExamples, 5)
-  .map((ex) => `> ${ex}`)
-  .join("\n")}
-  
-  
-  Reminder never use hashtags or emojis in the Twitter content.`;
-  }
-
-  async shouldRespond(
-    tweet: Tweet
-  ): Promise<{ respond: boolean; reason?: string }> {
-    // Get thread ID - use conversationId or fall back to tweet ID
-    const threadId = tweet.conversationId || tweet.id;
-    if (!threadId) {
-      return { respond: false, reason: "No thread ID available" };
-    }
-
-    // Skip if already processed
-    if (this.processedTweets.has(tweet.id!)) {
-      return { respond: false, reason: "Tweet already processed" };
-    }
-
-    // Check if thread is muted
-    const threadControl = this.threadControls.get(threadId);
-    if (threadControl?.isMuted) {
-      return {
-        respond: false,
-        reason: `Thread muted: ${threadControl.muteReason}`
-      };
-    }
-
-    // Check thread depth from control
-    if (
-      threadControl &&
-      threadControl.depth > this.interactionConfig.maxThreadDepth
-    ) {
-      this.muteThread(threadId, "Thread depth exceeded");
-      return { respond: false, reason: "Thread too deep" };
-    }
-
-    // Check for no-response keywords
-    const hasNoResponseKeyword = this.interactionConfig.noResponseKeywords.some(
-      (keyword) => tweet.text?.toLowerCase().includes(keyword)
-    );
-    if (hasNoResponseKeyword) {
-      this.muteThread(threadId, "No response keyword detected");
-      return { respond: false, reason: "No response keyword detected" };
-    }
-
-    // Check engagement score
-    const engagementScore = this.calculateEngagementScore(tweet);
-    if (engagementScore < this.interactionConfig.minEngagementScore) {
-      return { respond: false, reason: "Low engagement score" };
-    }
-
-    // Random skip chance
-    if (Math.random() < this.interactionConfig.skipProbability) {
-      return { respond: false, reason: "Random skip" };
-    }
-
-    return { respond: true };
-  }
-
-  private muteThread(threadId: string, reason: string): void {
-    const control = this.threadControls.get(threadId) || {
-      depth: 0,
-      lastInteraction: Date.now()
-    };
-
-    this.threadControls.set(threadId, {
-      ...control,
-      isMuted: true,
-      muteReason: reason,
-      lastInteraction: Date.now()
-    });
-
-    this.updateThreadControlCache();
-  }
-
-  private calculateEngagementScore(tweet: Tweet): number {
-    const likes = tweet.likes || 0;
-    const retweets = tweet.retweets || 0;
-    const replies = tweet.replies || 0;
-    const bookmarks = tweet.bookmarkCount || 0;
-    const views = tweet.views || 0;
-
-    return (
-      (likes * 0.5 +
-        retweets * 1.0 +
-        replies * 0.8 +
-        bookmarks * 0.3 +
-        (views / 1000) * 0.1) /
-      100
-    );
-  }
-
   async fetchMentions(): Promise<number> {
     try {
       log("Fetching Twitter mentions...");
@@ -325,9 +185,11 @@ ${this.context.stateService
           continue;
         }
 
-        // Check if we should respond to this mention
-        const { respond, reason } = await this.shouldRespond(mention);
-        if (!respond) {
+        // Check if we should respond to this mention using interaction control
+        const { interact: shouldRespond, reason } =
+          await this.interactionControl.shouldInteract(mention);
+
+        if (!shouldRespond) {
           log(`Skipping mention ${mention.id}: ${reason}`);
           this.processedTweets.add(mention.id);
           continue;
@@ -345,7 +207,7 @@ ${this.context.stateService
         const replyMessage = await this.context.agentService.handleMessage(
           message,
           {
-            postSystemPrompt: this.systemPrompt({
+            postSystemPrompt: this.interactionControl.systemPrompt({
               agentName: this.context.stateService.getCharacter().name,
               twitterUsername: process.env.PLUGIN_TWITTER_USERNAME!
             })
@@ -376,29 +238,25 @@ ${this.context.stateService
     const threadId = tweet.conversationId || tweet.id;
     if (!threadId) return;
 
-    // Handle special response types
-    if (replyMessage.content.includes("MUTE_THREAD")) {
-      this.muteThread(threadId, "Explicitly muted by agent");
-      return;
-    }
+    // Check the AI response using interaction control
+    const controlCheck =
+      await this.interactionControl.shouldInteractWithAIOutput(
+        tweet,
+        replyMessage.content
+      );
 
-    if (replyMessage.content.includes("NO_RESPONSE")) {
+    if (!controlCheck.interact) {
+      log(`Skipping response for tweet ${tweet.id}: ${controlCheck.reason}`);
       return;
     }
 
     // Send the response
     await this.client.sendTweet(replyMessage.content, tweet.id);
 
-    // Update thread control
-    const existingControl = this.threadControls.get(threadId);
-    this.threadControls.set(threadId, {
-      isMuted: false,
-      lastInteraction: Date.now(),
-      depth: (existingControl?.depth || 0) + 1,
-      muteReason: undefined
-    });
-
-    await this.updateThreadControlCache();
+    // Process the interaction in the control system
+    if (threadId) {
+      await this.interactionControl.processInteraction(threadId);
+    }
   }
 
   private async updateCache(lastMentionId: string) {
@@ -421,45 +279,5 @@ ${this.context.stateService
     } catch (error) {
       console.error("Error updating cache:", error);
     }
-  }
-
-  private async updateThreadControlCache(): Promise<void> {
-    try {
-      await this.cache.set(
-        "twitter:thread_controls",
-        Object.fromEntries(this.threadControls.entries()),
-        { type: "thread_controls", timestamp: Date.now() }
-      );
-    } catch (error) {
-      console.error("Error updating thread control cache:", error);
-    }
-  }
-
-  private async cleanupThreadControls(): Promise<{
-    cleaned: number;
-    timestamp: number;
-  }> {
-    const now = Date.now();
-    let cleaned = 0;
-
-    for (const [threadId, control] of this.threadControls.entries()) {
-      if (
-        now - control.lastInteraction >
-        this.interactionConfig.threadTimeout
-      ) {
-        this.threadControls.delete(threadId);
-        cleaned++;
-      }
-    }
-
-    if (cleaned > 0) {
-      await this.updateThreadControlCache();
-      log(`Cleaned up ${cleaned} old thread controls`);
-    }
-
-    return {
-      cleaned,
-      timestamp: now
-    };
   }
 }
