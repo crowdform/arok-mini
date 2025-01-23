@@ -146,8 +146,9 @@ export class APIPlugin implements ExtendedPlugin {
             "```" +
             `\n\n
             Given the above information, take the one main topic and generate and post content about it in the character style.
+            Do not reply directly but MUST call tools and functions in-order to route this request to the correct function. Use POST_CONTENT mostly.
             `,
-          author: apiMessage.userId || "event-system-user1",
+          author: apiMessage.userId || "event-system-user2",
           createdAt: new Date().toISOString(),
           type: "request",
           source: "api",
