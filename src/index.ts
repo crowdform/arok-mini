@@ -76,7 +76,7 @@ async function startServer() {
     await agent.registerPlugin(new APIPlugin({ app }));
     // await agent.registerPlugin(new TwitterInteractions());
     await agent.registerPlugin(new TelegramPlugin());
-    await agent.registerPlugin(new SolanaPlugin());
+    // await agent.registerPlugin(new SolanaPlugin());
 
     console.log("Clients started successfully");
     // Basic health check endpoint

@@ -169,7 +169,11 @@ export class TelegramPlugin implements ExtendedPlugin {
 
     // Handle regular messages
     this.bot.on("message:text", async (ctx) => {
-      if (!ctx.session.userId) return;
+      const userId = ctx.from?.id.toString();
+      if (!userId) return;
+
+      ctx.session.userId = userId;
+      ctx.session.isAdmin = this.config.adminIds.includes(userId);
 
       ctx.session.messageCount++;
 
