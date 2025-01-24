@@ -5,7 +5,14 @@ export interface Message {
   participants?: string[];
   type: "request" | "response" | "event";
   requestId?: string; // Original request ID if this is a response
-  source: "twitter" | "api" | "system" | "plugin" | "agent" | "automated";
+  source:
+    | "twitter"
+    | "api"
+    | "system"
+    | "plugin"
+    | "agent"
+    | "automated"
+    | "telegram";
   createdAt: string;
   chainId?: string;
   metadata?: {
