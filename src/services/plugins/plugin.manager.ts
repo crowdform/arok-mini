@@ -23,10 +23,6 @@ export class PluginManager {
       await plugin.initialize(this.context);
       this.plugins.set(plugin.metadata.name, plugin);
 
-      if (plugin.handleMessage) {
-        this.context.messageBus.subscribe(plugin.handleMessage.bind(plugin));
-      }
-
       log(`Plugin ${plugin.metadata.name} registered successfully`);
     } catch (error) {
       console.error(
@@ -100,7 +96,8 @@ export class PluginManager {
       author: `plugin:${pluginName}`,
       createdAt: new Date().toISOString(),
       source: "plugin",
-      parentId: message.id,
+      type: "response",
+      requestId: message.id,
       metadata: {
         pluginName,
         intent,
@@ -113,8 +110,8 @@ export class PluginManager {
     // Save to memory service
     await this.context.memoryService.addMemory(resultMessage);
 
-    // Publish to message bus
-    await this.context.messageBus.publish(resultMessage);
+    // // Publish to message bus
+    // await this.context.messageBus.publish(resultMessage);
   }
 
   private isExtendedPlugin(
@@ -141,6 +138,8 @@ export class PluginManager {
   }
 
   getPluginMetadata(): PluginMetadata[] {
-    return Array.from(this.plugins.values()).map((plugin) => plugin.metadata);
+    return Array.from(this.plugins.values())
+      .map((plugin) => plugin.metadata)
+      .filter((plugin) => plugin.callable);
   }
 }

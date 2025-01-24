@@ -4,6 +4,7 @@ import { Scraper, SearchMode, Tweet } from "agent-twitter-client";
 import { PluginContext } from "../../services/plugins/types";
 import { Message } from "../../types/message.types";
 import debug from "debug";
+export type { Tweet } from "agent-twitter-client";
 
 const log = debug("arok:twitter");
 
@@ -33,7 +34,6 @@ export class TwitterClient {
     this.cache = context.cacheService;
 
     // Subscribe to outgoing messages that need to be sent to Twitter
-    this.messageBus.subscribeToOutgoing(this.handleOutgoingMessage.bind(this));
   }
 
   public static getInstance(context: PluginContext): TwitterClient {
@@ -118,7 +118,7 @@ export class TwitterClient {
 
       await this.cache.set(this.SESSION_CACHE_KEY, session, {
         type: "session",
-        username: process.env.TWITTER_USERNAME,
+        username: process.env.PLUGIN_TWITTER_USERNAME,
         createdAt: Date.now()
       });
 
@@ -185,13 +185,13 @@ export class TwitterClient {
       },
       {
         type: "twitter_state",
-        username: process.env.TWITTER_USERNAME
+        username: process.env.PLUGIN_TWITTER_USERNAME
       }
     );
   }
 
-  private async handleOutgoingMessage(message: Message) {
-    if (message.source !== "twitter") {
+  public async handleOutgoingMessage(message: Message) {
+    if (message.source !== "twitter" && !message.metadata?.requiresPosting) {
       return;
     }
     log("Sending tweet:", message.content);
@@ -209,19 +209,65 @@ export class TwitterClient {
         message.content,
         message?.metadata?.replyToId
       );
+
+      this.messageBus.publish({
+        ...message,
+        source: "twitter",
+        metadata: {
+          ...message.metadata,
+          sent: true
+        }
+      });
     } catch (error) {
       console.error("Error sending tweet:", error);
       throw error;
     }
   }
 
+  async searchTweets(
+    query: string,
+    count: number = 10,
+    mode: SearchMode = SearchMode.Latest
+  ): Promise<Tweet[]> {
+    await this.validateSession();
+    try {
+      log(`Searching tweets for query: ${query}`);
+      const tweets: Tweet[] = [];
+      const results = await this.scraper.fetchSearchTweets(query, count, mode);
+      for (const tweet of results.tweets) {
+        tweets.push(tweet);
+      }
+
+      return tweets;
+    } catch (error) {
+      console.error("Error searching tweets:", error);
+      // @ts-ignore
+      log(error?.data);
+      return [];
+    }
+  }
+
+  stripHashtags(text: string) {
+    return text.replace(/#\w+\s*/g, "").trim();
+  }
+
   async sendTweet(content: string, replyToId?: string): Promise<boolean> {
     await this.validateSession();
     try {
-      await this.scraper.sendTweet(content, replyToId);
+      const strippedContent = this.stripHashtags(content);
+      if (strippedContent.includes("#")) {
+        throw new Error("Posting tweets with hashtags is not allowed");
+      }
+      if (strippedContent.includes("error")) {
+        throw new Error("Posting tweets with error is not allowed");
+      }
+
+      await this.scraper.sendTweet(strippedContent, replyToId);
       return true;
     } catch (error) {
       console.error("Error sending tweet:", error);
+      // @ts-ignore
+      console.error(error?.response?.data);
       throw error;
     }
   }
@@ -254,13 +300,17 @@ export class TwitterClient {
   tweetToMessage(tweet: Tweet): Message {
     return {
       id: `${tweet.id}`,
-      content: tweet.text || "",
+      content:
+        `Twitter mention from ${tweet.username} at ${tweet.timeParsed}: ${tweet.text}` ||
+        "",
       author: tweet.userId || "",
       createdAt: tweet?.timestamp
         ? new Date(+tweet?.timestamp).toISOString()
         : new Date().toISOString(),
+      participants: (tweet.userId && [tweet.userId]) || [],
       source: "twitter",
-      parentId: tweet.conversationId,
+      type: "request",
+      requestId: tweet.conversationId,
       metadata: {
         name: tweet.name,
         username: tweet.username,

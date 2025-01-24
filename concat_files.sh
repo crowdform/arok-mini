@@ -66,7 +66,7 @@ is_ignored() {
 echo "Starting concatenation at $(date)" > "$output_file"
 
 # Find all files and process them
-find . -type f -not -path "./logs/*" -not -path "./node_modules/*" -not -path "./projects/*" -not -path "./.git/*" -not -name "$script_name" | sort | while IFS= read -r file; do
+find . -type f -not -path "./logs/*" -not -path "./node_modules/*" -not -path "./projects/*" -not -path "./.git/*" -not -name "$script_name" -not -path "./dist/*" | sort | while IFS= read -r file; do
     # Skip if file matches gitignore patterns
     if [ -f ".gitignore" ] && is_ignored "$file"; then
         echo "Skipping ignored file: $file"

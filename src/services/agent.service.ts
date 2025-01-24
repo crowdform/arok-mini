@@ -3,26 +3,29 @@
 import { LLMService } from "./llm.service";
 import { MemoryService } from "./memory.service";
 import { MessageService } from "./message.service";
-import { Message } from "../types/message.types";
+import { Message, ROUTING_PATTERNS } from "../types/message.types";
 import { PluginManager } from "./plugins/plugin.manager";
-import { Plugin, ExtendedPlugin } from "./plugins/types";
+import { Plugin, ExtendedPlugin, PluginMetadata } from "./plugins/types";
 import { RateLimitService } from "./rate-limit.service";
 import { StateService } from "./state.service";
 import debug from "debug";
 import { Character } from "./character.loader";
-import type { OpenAI } from "openai";
 import { CacheService } from "./cache.service";
 import { SchedulerService } from "./scheduler/scheduler.service";
 import type { SchedulerConfig } from "./scheduler/types";
-
+import { generateText, tool, jsonSchema } from "ai";
+import type { OpenAIProvider } from "@ai-sdk/openai";
+import { AIResponseParser } from "../utils";
 const log = debug("arok:agent-service");
 
 export interface AgentConfig {
   characterConfig: Character;
-  llmInstance: OpenAI;
+  llmInstance: OpenAIProvider;
   llmInstanceModel: string;
   schedulerConfig?: SchedulerConfig;
 }
+
+// Schema for agent responses
 
 export class AgentService {
   private readonly llm: LLMService;
@@ -32,18 +35,23 @@ export class AgentService {
   private readonly rateLimit: RateLimitService;
   private isShuttingDown: boolean = false;
   private isStarted: boolean = false;
-  private readonly MAX_PLUGIN_DEPTH = 3;
+  private readonly MAX_STEPS = 10; // Maximum number of iterations
   private readonly scheduler: SchedulerService;
   private readonly cacheService: CacheService;
+  private readonly stateService: StateService;
+  private readonly llmInstance: OpenAIProvider;
+  private tools: Record<string, any> = {};
+  public responseParser: typeof AIResponseParser;
 
   constructor(config: AgentConfig) {
     this.memory = new MemoryService();
-    const stateService = new StateService(config.characterConfig, this.memory);
+    this.stateService = new StateService(config.characterConfig, this.memory);
     this.llm = new LLMService({
-      llmInstance: config.llmInstance,
       llmInstanceModel: config.llmInstanceModel,
-      stateService
+      stateService: this.stateService,
+      llmInstance: config.llmInstance
     });
+    this.llmInstance = config.llmInstance;
     this.rateLimit = new RateLimitService();
     this._messageBus = new MessageService();
     this.cacheService = new CacheService();
@@ -56,22 +64,19 @@ export class AgentService {
       this.cacheService
     );
 
+    this.responseParser = AIResponseParser;
+
     const context = {
       messageBus: this._messageBus,
       memoryService: this.memory,
       cacheService: this.cacheService,
-      stateService,
+      stateService: this.stateService,
       llmService: this.llm,
-      schedulerService: this.scheduler
+      schedulerService: this.scheduler,
+      agentService: this
     };
 
     this.pluginManager = new PluginManager(context);
-
-    this._messageBus.subscribe(this.handleMessage.bind(this));
-  }
-
-  get messageBus(): MessageService {
-    return this._messageBus;
   }
 
   async registerPlugin(plugin: Plugin | ExtendedPlugin): Promise<void> {
@@ -107,6 +112,10 @@ export class AgentService {
         }
       }
 
+      // Convert plugins to tools format
+      // @ts-ignore
+      this.tools = this.convertPluginsToTools(plugins);
+
       this.isStarted = true;
       this.scheduler.initialize();
       log("Agent service started successfully");
@@ -116,19 +125,58 @@ export class AgentService {
     }
   }
 
-  // @ts-ignore
-  private async handleMessage(
+  private convertPluginsToTools(plugins: Plugin[]): Record<string, any> {
+    const tools: Record<string, any> = {};
+
+    for (const plugin of plugins) {
+      for (const [actionName, actionMeta] of Object.entries(
+        plugin.metadata.actions
+      )) {
+        // Only include scoped actions
+        if (!actionMeta?.scope || !actionMeta?.scope.includes("*")) {
+          log(`Skipping action ${actionName} due to scope restrictions`);
+          continue;
+        }
+
+        log(`Plugin-${actionName}`, (plugin as any).actions);
+        tools[actionName] = tool({
+          // Convert Zod schema to parameters objec
+          description: actionMeta.description,
+          // @ts-ignore
+          parameters: jsonSchema(actionMeta.schema),
+          // Wrapper function to handle tool execution
+          execute: async (params: any) => {
+            try {
+              log(`Executing tool ${actionName} with params:`, params);
+              const result = await (plugin as any).actions[actionName].execute(
+                params
+              );
+              return result;
+            } catch (error) {
+              console.error(`Error executing tool ${actionName}:`, error);
+              throw error;
+            }
+          }
+        });
+      }
+    }
+
+    return tools;
+  }
+
+  public async handleMessage(
     message: Message,
-    pluginDepth = 0,
-    pluginResponses: Record<string, any>[] = []
-  ) {
+    config: { postSystemPrompt?: string; pluginScope?: string[] } = {}
+  ): Promise<Message> {
     if (this.isShuttingDown) {
       log("Agent is shutting down, message rejected:", message.id);
-      return;
+      return this.sendResponse(message, {
+        content: "Rate limit exceeded. Please try again later."
+      });
     }
 
     try {
-      // Always store the message for context
+      // Store the initial message
       await this.memory.addMemory(message);
 
       // Check rate limit before processing
@@ -136,78 +184,99 @@ export class AgentService {
         message.author,
         message.id
       );
-
       if (!canProcess) {
-        log("Rate limit exceeded for user:", message.author);
-        // Send NO_RESPONSE notification
-        await this.sendResponse(message, {
-          content: "NO_RESPONSE",
+        return this.sendResponse(message, {
+          content: "Rate limit exceeded. Please try again later.",
           metadata: {
             type: "rate_limit",
             reason:
-              "Message limit exceeded. Please wait before sending more messages."
+              "Message limit exceeded. Please wait before sending more messages.",
+            timestamp: Date.now()
           }
         });
-        return;
       }
 
+      // Get conversation context
       const history = await this.memory.getRecentContext(message.author, 5);
-      const pluginMetadata = this.pluginManager.getPluginMetadata();
 
-      log("Processing message with plugin depth:", pluginDepth);
-      const result = await this.llm.processMessage(
-        message,
-        history,
-        pluginMetadata,
-        pluginResponses
-      );
+      const state = await this.stateService.composeState(message, history);
+      const tools = this.tools;
 
-      // Check for NO_RESPONSE
-      if (result.content === "NO_RESPONSE" || result.action === "NO_RESPONSE") {
-        log("AI chose NO_RESPONSE");
-        await this.sendResponse(message, {
-          content: "NO_RESPONSE",
-          metadata: {
-            type: "no_response",
-            reason: result.metadata?.reason || "Agent chose not to respond",
-            timestamp: Date.now()
-          }
-        });
-        return;
-      }
+      log("Available tools:", Object.keys(tools));
 
-      if (result.action && pluginDepth < this.MAX_PLUGIN_DEPTH) {
-        log(`Executing plugin action: ${result.action}`);
-        try {
-          const pluginResult = await this.executePluginWithTimeout(
-            result.action,
-            message,
-            result.data
-          );
+      // Process with Vercel AI SDK Runtime
+      // @ts-ignore
+      const {
+        text: answer,
+        usage,
+        steps
+      } = await generateText({
+        // @ts-ignore
+        model: this.llmInstance(this.llm.llmInstanceModel),
+        system:
+          this.stateService.buildSystemPrompt(state) + config?.postSystemPrompt,
+        messages: [
+          // @ts-ignore
+          ...this.stateService.buildHistoryContext(state).reverse(),
+          // @ts-ignore
+          { role: "user", content: message.content }
+        ],
+        maxSteps: this.MAX_STEPS,
+        tools,
+        // experimental_streamTools: true,
+        onStepFinish: async ({
+          // @ts-ignore
+          text,
+          // @ts-ignore
+          toolCalls,
+          // @ts-ignore
+          toolResults,
+          // @ts-ignore
+          usage,
+          // @ts-ignore
+          finishReason
+          // @ts-ignore
+        }) => {
+          log(toolResults);
 
-          pluginResponses.push({
-            action: result.action,
-            result: pluginResult,
-            timestamp: Date.now()
-          });
+          const formatToolResult = (toolResults: any) => {
+            const firstResult = toolResults?.[0];
 
-          return this.handleMessage(message, pluginDepth + 1, pluginResponses);
-        } catch (error) {
-          console.error("Plugin execution error:", error);
-          await this.sendResponse(message, {
-            content: "NO_RESPONSE",
+            if (!firstResult) {
+              return "";
+            }
+
+            const { toolName, result } = firstResult;
+
+            return `Plugin called ${toolName} with result: ${JSON.stringify(result)}`;
+          };
+          // Save conversation history
+          await this.memory.addMemory({
+            ...message,
+            id: crypto.randomUUID(),
+            content: text || formatToolResult(toolResults),
+            chainId: message.id,
             metadata: {
-              error: true,
-              reason: "Error processing plugin action"
+              usage,
+              toolResults
             }
           });
         }
-      } else {
-        await this.sendResponse(message, result);
-      }
+      });
+
+      return this.sendResponse(message, {
+        content: answer,
+        metadata: {
+          usage,
+          steps
+        }
+      });
     } catch (error) {
-      console.error("Error handling message:", error);
-      await this.handleError(
+      console.error("Error in handleMessage:", error);
+
+      // Generate error response using schema
+
+      return this.handleError(
         message,
         error instanceof Error ? error : new Error(String(error))
       );
@@ -238,14 +307,16 @@ export class AgentService {
   private async sendResponse(
     message: Message,
     result: { content: string; metadata?: any }
-  ) {
+  ): Promise<Message> {
     const response: Message = {
       id: crypto.randomUUID(),
       content: result.content,
       author: "agent",
-      participants: [message.author],
+      participants: message.participants,
       source: message.source,
-      parentId: message.id,
+      type: "response",
+      chainId: message.id,
+      requestId: message.id,
       createdAt: new Date().toISOString(),
       metadata: {
         ...message.metadata,
@@ -254,31 +325,28 @@ export class AgentService {
       }
     };
 
-    log("Sending response:", response);
-    await this.memory.addMemory(response);
-    await this._messageBus.send(response);
+    return response;
   }
 
-  private async handleError(message: Message, error: Error) {
+  private async handleError(message: Message, error: Error): Promise<Message> {
     const errorResponse: Message = {
       id: crypto.randomUUID(),
       content:
         "I encountered an error processing your request. Please try again.",
       author: "agent",
       participants: [message.author],
-
+      type: "event",
+      chainId: message.id,
       source: message.source,
       createdAt: new Date().toISOString(),
-      parentId: message.id,
+      requestId: message.id,
       metadata: {
         error: error.message,
         isError: true
       }
     };
 
-    log("Sending error response:", errorResponse);
-    await this.memory.addMemory(errorResponse);
-    await this._messageBus.send(errorResponse);
+    return errorResponse;
   }
 
   async shutdown(): Promise<void> {
@@ -300,7 +368,7 @@ export class AgentService {
       }
     }
 
-    this._messageBus.clearSubscriptions();
+    this._messageBus.clear();
     this.isStarted = false;
     log("Agent service shut down successfully");
   }

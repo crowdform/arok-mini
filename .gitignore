@@ -4,3 +4,13 @@ bun.lockb
 projects
 src/plugins/plugin-base-nft
 src/plugins/plugin-solana
+logs.txt
+dist
+firebase.json
+firestore.indexes.json
+firestore.rules
+.firebaserc
+functions
+_.env
+.env.local
+.env.production

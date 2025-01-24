@@ -5,7 +5,7 @@ import {
   PluginContext,
   PluginMetadata
 } from "../../services/plugins/types";
-import { Message } from "../../types/message.types";
+import { Message, ROUTING_PATTERNS } from "../../types/message.types";
 import express, { Request, Response } from "express";
 import debug from "debug";
 
@@ -14,8 +14,12 @@ const log = debug("arok:plugin:api");
 interface APIMessage {
   content: string;
   userId?: string;
-  parentId?: string;
+  requestId?: string;
   metadata?: Record<string, any>;
+}
+
+interface EventMessage {
+  [key: string]: any;
 }
 
 interface APIPluginConfig {
@@ -38,6 +42,7 @@ export class APIPlugin implements ExtendedPlugin {
     name: "api",
     description: "Handles HTTP API interactions",
     version: "1.0.0",
+    callable: false,
     actions: {
       SEND_API_RESPONSE: {
         description: "Send a response to an API request",
@@ -54,7 +59,8 @@ export class APIPlugin implements ExtendedPlugin {
               description: "Response content",
               required: true
             }
-          }
+          },
+          required: ["responseId", "content"]
         },
         examples: [
           {
@@ -83,7 +89,6 @@ export class APIPlugin implements ExtendedPlugin {
             }
           });
 
-          this.cleanupResponse(data.responseId);
           return { status: "sent", responseId: data.responseId };
         } catch (error) {
           console.error("Error sending API response:", error);
@@ -103,11 +108,6 @@ export class APIPlugin implements ExtendedPlugin {
     if (this.context.schedulerService.config.mode === "serverless") {
       this.setupHeartbeatEndpoint();
     }
-
-    // Subscribe to outgoing messages
-    this.context.messageBus.subscribeToOutgoing(
-      this.handleOutgoingMessage.bind(this)
-    );
 
     this.isInitialized = true;
     log("API plugin initialized");
@@ -132,7 +132,65 @@ export class APIPlugin implements ExtendedPlugin {
 
   private async setupRoutes() {
     this.app.use(express.json());
+    // @ts-ignore
+    this.app.post("/api/event", async (req: Request, res: Response) => {
+      try {
+        const apiMessage: EventMessage = req.body;
 
+        const responseId = crypto.randomUUID();
+        const message: Message = {
+          id: crypto.randomUUID(),
+          content:
+            "#Notification Event:\n\n```json" +
+            JSON.stringify(apiMessage) +
+            "```" +
+            `\n\n
+            Given the above information, take the one main topic and generate and post content about it in the character style.
+            Do not reply directly but MUST call tools and functions in-order to route this request to the correct function. Use POST_CONTENT mostly.
+            `,
+          author: apiMessage.userId || "event-system-user2",
+          createdAt: new Date().toISOString(),
+          type: "request",
+          source: "api",
+          requestId: responseId,
+          metadata: {
+            ...apiMessage.metadata,
+            responseNeeded: true,
+            responseId
+          }
+        };
+
+        const responseMessage = await this.context.agentService.handleMessage(
+          message,
+          {
+            postSystemPrompt: `\n   \n #Notification Events are incoming data, that you should determine how to handle. Always keep reply in character.
+              \n
+              # Example handling: \n
+              If new content, news, market movement is detected, call POST_CONTENT function with content. \n 
+              Do not repeat yourself so check the previous context for the last actions and posts.
+              Do not reply directly but MUST call tools and functions in-order to route this request to the correct function. Use POST_CONTENT mostly.
+              Focus on one topic from the notification event.
+              Reminder never use hashtags or emojis in the post content.\n
+            `
+          }
+        );
+        res.json({
+          status: "success",
+          data: {
+            messageId: responseMessage.id,
+            content: responseMessage.content,
+            createdAt: responseMessage.createdAt,
+            metadata: responseMessage.metadata
+          }
+        });
+      } catch (error) {
+        console.error("Error processing API message:", error);
+        res.status(500).json({
+          status: "error",
+          error: "Failed to process message"
+        });
+      }
+    });
     // @ts-ignore
     this.app.post("/api/chat", async (req: Request, res: Response) => {
       try {
@@ -151,8 +209,9 @@ export class APIPlugin implements ExtendedPlugin {
           content: apiMessage.content,
           author: apiMessage.userId || "api-user",
           createdAt: new Date().toISOString(),
+          type: "request",
           source: "api",
-          parentId: apiMessage.parentId,
+          requestId: apiMessage.requestId,
           metadata: {
             ...apiMessage.metadata,
             responseNeeded: true,
@@ -160,15 +219,17 @@ export class APIPlugin implements ExtendedPlugin {
           }
         };
 
-        this.pendingResponses.set(responseId, res);
-
-        const timeout = setTimeout(() => {
-          this.handleResponseTimeout(responseId);
-        }, this.RESPONSE_TIMEOUT);
-
-        this.responseTimeouts.set(responseId, timeout);
-
-        await this.context.messageBus.publish(message);
+        const responseMessage =
+          await this.context.agentService.handleMessage(message);
+        res.json({
+          status: "success",
+          data: {
+            messageId: responseMessage.id,
+            content: responseMessage.content,
+            createdAt: responseMessage.createdAt,
+            metadata: responseMessage.metadata
+          }
+        });
       } catch (error) {
         console.error("Error processing API message:", error);
         res.status(500).json({
@@ -177,57 +238,5 @@ export class APIPlugin implements ExtendedPlugin {
         });
       }
     });
-  }
-
-  private async handleOutgoingMessage(message: Message) {
-    if (message.source !== "api") return;
-
-    const responseId = message.metadata?.responseId;
-    if (!responseId) return;
-
-    const res = this.pendingResponses.get(responseId);
-    if (!res) return;
-
-    try {
-      res.json({
-        status: "success",
-        data: {
-          messageId: message.id,
-          content: message.content,
-          createdAt: message.createdAt,
-          metadata: message.metadata
-        }
-      });
-    } catch (error) {
-      console.error("Error sending API response:", error);
-      if (!res.headersSent) {
-        res.status(500).json({
-          status: "error",
-          error: "Failed to send response"
-        });
-      }
-    } finally {
-      this.cleanupResponse(responseId);
-    }
-  }
-
-  private handleResponseTimeout(responseId: string) {
-    const res = this.pendingResponses.get(responseId);
-    if (res) {
-      res.status(504).json({
-        status: "error",
-        error: "Request timed out"
-      });
-      this.cleanupResponse(responseId);
-    }
-  }
-
-  private cleanupResponse(responseId: string) {
-    this.pendingResponses.delete(responseId);
-    const timeout = this.responseTimeouts.get(responseId);
-    if (timeout) {
-      clearTimeout(timeout);
-      this.responseTimeouts.delete(responseId);
-    }
   }
 }

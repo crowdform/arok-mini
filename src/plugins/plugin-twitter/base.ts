@@ -5,6 +5,8 @@ import {
   PluginAction
 } from "../../services/plugins/types";
 import { Message } from "../../types/message.types";
+import { TwitterClient } from "./twitter.client";
+import { TwitterInteractionControl } from "./interaction-control";
 import debug from "debug";
 
 const log = debug("arok:plugin:twitter-automation");
@@ -18,6 +20,8 @@ export interface AutomationConfig {
 
 export abstract class TwitterAutomationPlugin implements ExtendedPlugin {
   protected context!: PluginContext;
+  public client!: TwitterClient;
+  public cache!: PluginContext["cacheService"];
   protected intervals: NodeJS.Timeout[] = [];
   protected messageHandlers: Map<string, (message: Message) => Promise<void>> =
     new Map();
@@ -29,6 +33,7 @@ export abstract class TwitterAutomationPlugin implements ExtendedPlugin {
       reject: (reason?: any) => void;
     }
   > = new Map();
+  public interactionControl!: TwitterInteractionControl;
 
   abstract metadata: PluginMetadata;
   abstract actions: Record<string, PluginAction>;
@@ -36,10 +41,13 @@ export abstract class TwitterAutomationPlugin implements ExtendedPlugin {
 
   async initialize(context: PluginContext): Promise<void> {
     this.context = context;
+    this.cache = context.cacheService;
     log(`Initializing ${this.metadata.name}`);
-
-    this.context.messageBus.subscribeToOutgoing(
-      this.handleAgentResponse.bind(this)
+    this.client = TwitterClient.getInstance(context);
+    this.interactionControl = new TwitterInteractionControl(
+      this.metadata.name,
+      this.context.cacheService,
+      this.context.stateService
     );
   }
 
@@ -50,72 +58,19 @@ export abstract class TwitterAutomationPlugin implements ExtendedPlugin {
     }
   }
 
-  protected async handleAgentResponse(message: Message) {
-    if (!message.parentId) return;
-
-    const promiseHandler = this.responsePromises.get(message.parentId);
-    if (promiseHandler) {
-      promiseHandler.resolve(message);
-      this.responsePromises.delete(message.parentId);
-      return;
-    }
-
-    const handler = this.messageHandlers.get(message.parentId);
-    if (handler) {
-      try {
-        await handler(message);
-        this.messageHandlers.delete(message.parentId);
-        this.retryCount.delete(message.parentId);
-      } catch (error) {
-        const retries = (this.retryCount.get(message.parentId) || 0) + 1;
-        if (retries <= this.config.maxRetries) {
-          this.retryCount.set(message.parentId, retries);
-          log(
-            `Retrying handler for message ${message.parentId}, attempt ${retries}`
-          );
-          await handler(message);
-        } else {
-          console.error(`Max retries exceeded for message ${message.parentId}`);
-          this.messageHandlers.delete(message.parentId);
-          this.retryCount.delete(message.parentId);
-        }
-      }
-    }
-  }
-
-  protected async waitForAgentResponse(
-    messageId: string,
-    timeout?: number
-  ): Promise<Message> {
-    return new Promise((resolve, reject) => {
-      const timeoutMs = timeout || this.config.timeout;
-      const timeoutId = setTimeout(() => {
-        this.responsePromises.delete(messageId);
-        reject(new Error(`Timeout waiting for agent response to ${messageId}`));
-      }, timeoutMs);
-
-      this.responsePromises.set(messageId, {
-        resolve: (message: Message) => {
-          clearTimeout(timeoutId);
-          resolve(message);
-        },
-        reject
-      });
-    });
-  }
-
   protected async sendToTwitter(
     content: string,
     replyTo?: string,
     metadata: Record<string, any> = {}
-  ) {
+  ): Promise<void> {
     const twitterMessage: Message = {
       id: crypto.randomUUID(),
       content,
       author: "system",
       createdAt: new Date().toISOString(),
       source: "twitter",
-      parentId: replyTo,
+      requestId: replyTo,
+      type: "event",
       metadata: {
         isTwitterContent: true,
         automated: true,
@@ -127,7 +82,7 @@ export abstract class TwitterAutomationPlugin implements ExtendedPlugin {
     };
 
     log(`Sending content to Twitter: ${content.substring(0, 50)}...`);
-    await this.context.messageBus.send(twitterMessage);
+    return this.client.handleOutgoingMessage(twitterMessage);
   }
 
   protected async queryPlugin(
@@ -140,6 +95,7 @@ export abstract class TwitterAutomationPlugin implements ExtendedPlugin {
       author: "system",
       createdAt: new Date().toISOString(),
       source: "automated",
+      type: "request",
       metadata: {
         type: "query",
         requiresProcessing: true,
@@ -148,13 +104,14 @@ export abstract class TwitterAutomationPlugin implements ExtendedPlugin {
     };
 
     log(`Querying with prompt: ${prompt}`);
-    await this.context.messageBus.publish(queryMessage);
-    const response = await this.waitForAgentResponse(queryMessage.id);
+
+    const responseMessage =
+      await this.context.agentService.handleMessage(queryMessage);
 
     try {
-      return JSON.parse(response.content);
+      return JSON.parse(responseMessage.content);
     } catch {
-      return response.content;
+      return responseMessage.content;
     }
   }
 

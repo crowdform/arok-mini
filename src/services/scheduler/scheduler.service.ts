@@ -4,6 +4,7 @@ import debug from "debug";
 import { Job, JobResult, SchedulerConfig } from "./types";
 import { PluginContext } from "../plugins/types";
 import { CacheService } from "../cache.service";
+import { Timer } from "../../types/message.types";
 
 const log = debug("arok:scheduler");
 
@@ -19,7 +20,7 @@ export class SchedulerService {
   private isInitialized: boolean = false;
   private readonly CACHE_PREFIX = "scheduler:job:";
   private eventEmitter: EventEmitter;
-  private heartbeatInterval?: NodeJS.Timeout;
+  private heartbeatInterval?: Timer;
   private cacheService: CacheService;
 
   constructor(config: SchedulerConfig, cacheService: CacheService) {
@@ -121,6 +122,7 @@ export class SchedulerService {
 
   private async handleJobComplete(result: JobResult): Promise<void> {
     const { jobId } = result;
+    log(`Job ${jobId} completed`);
 
     await Promise.all([
       this.cacheService.set(
@@ -160,16 +162,30 @@ export class SchedulerService {
       const lastRunKey = `${this.CACHE_PREFIX}${job.id}:lastRun`;
       const lastRun = await this.cacheService.get(lastRunKey);
 
+      log(`Checking schedule for job ${job.id}`);
+      log(`Last run: ${lastRun}`);
       if (!lastRun) {
         return true; // First run
       }
 
       const interval = parseExpression(job.schedule, {
-        currentDate: new Date(lastRun.value),
+        currentDate: new Date(lastRun),
         tz: this.config.timeZone
       });
 
       const nextRun = interval.next().toDate();
+      // log(
+      //   "Should run - ",
+      //   job.schedule,
+      //   "Last run: ",
+      //   lastRun,
+      //   "Next run: ",
+      //   nextRun,
+      //   "Current time: ",
+      //   currentTime,
+      //   "run now: ",
+      //   nextRun <= currentTime
+      // );
       return nextRun <= currentTime;
     } catch (error) {
       console.error(`Error checking job schedule for ${job.id}:`, error);
@@ -206,14 +222,20 @@ export class SchedulerService {
 
   async processJobs(): Promise<{ timestamp: string; results: JobResult[] }> {
     const currentTime = new Date();
-    const jobsToRun = this.jobs.filter((job) =>
-      this.shouldJobRun(job, currentTime)
+    const jobsToRun = await Promise.all(
+      this.jobs.map(async (job) => ({
+        job,
+        shouldRun: await this.shouldJobRun(job, currentTime)
+      }))
+    ).then((results) =>
+      results.filter(({ shouldRun }) => shouldRun).map(({ job }) => job)
     );
 
     log(`Processing ${jobsToRun.length} jobs`);
     const results = await Promise.all(
       jobsToRun.map((job) => this.executeJob(job))
     );
+    log(results.length, "jobs completed");
 
     return {
       timestamp: currentTime.toISOString(),

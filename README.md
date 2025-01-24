@@ -133,6 +133,7 @@ await agent.registerPlugin(new YourPlugin());
 - Follow existing code style (use prettier)
 - Use semantic versioning
 - List arok-mini as a peer dependency
+- Scope plugin to ["*", "group", "user"]
 
 ## Scheduler System
 

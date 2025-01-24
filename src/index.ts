@@ -6,7 +6,7 @@ import express from "express";
 config();
 import { CharacterLoader } from "./services/character.loader";
 import { AgentService } from "./services/agent.service";
-
+import { createOpenAI } from "@ai-sdk/openai";
 import debug from "debug";
 
 const log = debug("arok:init");
@@ -21,8 +21,6 @@ import {
 } from "./plugins/plugin-twitter";
 
 import { APIPlugin } from "./plugins/plugin-api";
-
-import OpenAI from "openai";
 
 async function startServer() {
   try {
@@ -40,37 +38,42 @@ async function startServer() {
     const openaiConfig = {
       apiKey: process.env.OPENAI_API_KEY,
       baseURL: "https://oai.helicone.ai/v1",
-      defaultHeaders: {
-        "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`
+      headers: {
+        "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
+        "Helicone-Property-Name": `${process.env.PLUGIN_TWITTER_USERNAME}/default`
       },
-      model: "gpt-4-turbo-preview"
+      model: "gpt-4-turbo"
     };
 
     const togetherAiConfig = {
       apiKey: process.env.TOGETHER_API_KEY,
       baseURL: `https://together.helicone.ai/v1/${process.env.HELICONE_API_KEY}`,
+      headers: {
+        "Helicone-Property-Name": `${process.env.PLUGIN_TWITTER_USERNAME}/default`
+      },
       model: "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo"
     };
-
-    const llmInstance = new OpenAI(togetherAiConfig);
+    const llmInstance = createOpenAI({
+      ...openaiConfig
+    });
 
     const agent = new AgentService({
       characterConfig: character,
       llmInstance,
-      llmInstanceModel: togetherAiConfig.model,
+      llmInstanceModel: openaiConfig.model,
       schedulerConfig: {
-        mode: "serverless",
+        mode: "single-node",
         timeZone: "UTC",
         heartbeatInterval: 60000
       }
     });
 
     // Register plugins
-    // await agent.registerPlugin(new QueryPlugin());
-    // await agent.registerPlugin(new TwitterRepliesPlugin());
-    // await agent.registerPlugin(new TwitterTweetsPlugin());
+    await agent.registerPlugin(new QueryPlugin());
+    await agent.registerPlugin(new TwitterRepliesPlugin());
+    await agent.registerPlugin(new TwitterTweetsPlugin());
     await agent.registerPlugin(new APIPlugin({ app }));
-    // await agent.registerPlugin(new TwitterInteractions());
+    await agent.registerPlugin(new TwitterInteractions());
 
     console.log("Clients started successfully");
     // Basic health check endpoint

@@ -1,12 +1,13 @@
+// src/plugins/plugin-twitter/tweets.ts
 import {
   PluginMetadata,
   PluginAction,
-  ActionExecutionContext
+  ActionExecutionContext,
+  PluginContext
 } from "../../services/plugins/types";
 import { TwitterAutomationPlugin, AutomationConfig } from "./base";
 import { Message } from "../../types/message.types";
 import debug from "debug";
-import { sampleSize } from "lodash";
 
 const log = debug("arok:plugin:twitter-tweets");
 
@@ -17,36 +18,73 @@ interface TweetGenerationConfig extends AutomationConfig {
   useTrendingTopics: boolean;
 }
 
+interface TopicData {
+  topic: string;
+  relevance: number;
+  lastUsed: number;
+  source: "character" | "generated" | "trending";
+}
+
+interface TopicCache {
+  topics: TopicData[];
+  lastUpdated: number;
+  generationCount: number;
+}
+
 export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
+  private lastTweetTime: number = 0;
+  private readonly TOPIC_CACHE_KEY = "twitter:tweet_topics";
+
   metadata: PluginMetadata = {
     name: "twitter_tweets_automation",
     description: "Automates generating and posting Twitter content",
     version: "1.0.0",
+    callable: true,
     actions: {
-      GENERATE_TWEET_TOPICS: {
-        description: "Generate relevant topics for new tweets",
+      GENERATE_TOPICS: {
+        description: "Generate and update tweet topics",
+        scope: ["automation"],
         schema: {
           type: "object",
           properties: {
             count: {
               type: "number",
               description: "Number of topics to generate"
-            },
-            includeTrending: {
-              type: "boolean",
-              description: "Whether to include trending topics"
             }
-          }
+          },
+          required: ["count"]
         },
         examples: [
           {
-            input: "Generate 3 tweet topics",
-            output: "DeFi trends, NFT markets, Web3 gaming"
+            input: "Generate 5 new topics",
+            output: "Generated and cached new topics"
           }
         ]
       },
-      GENERATE_AND_POST: {
-        description: "Generate and post new tweets",
+      POST_CONTENT: {
+        scope: ["*"],
+        description: `Post to content to platforms directly.`,
+        schema: {
+          type: "object",
+          properties: {
+            postContent: {
+              type: "string",
+              description:
+                "Post content (max 280 characters), lowercase, no hashtags or emojis in the content."
+            }
+          },
+          required: ["postContent"]
+        },
+        examples: [
+          {
+            input: { postContent: "Hello world!" },
+            output: "Content posted successfully"
+          }
+        ]
+      },
+      GENERATE_TWEET: {
+        scope: ["automation"],
+        description: "Generate and post a new tweet using available topics",
         schema: {
           type: "object",
           properties: {
@@ -54,18 +92,28 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
               type: "array",
               items: { type: "string" },
               description: "Topics to tweet about"
-            },
-            style: {
-              type: "string",
-              enum: ["analysis", "news", "opinion"],
-              description: "Style of the tweet"
             }
-          }
+          },
+          required: ["topics"]
         },
         examples: [
           {
-            input: "Generate analysis tweet about DeFi trends",
-            output: "Generated and queued tweet for posting"
+            input: { topics: ["AI trading", "market psychology"] },
+            output: {
+              status: "sent",
+              topics: ["AI trading", "market psychology"],
+              timestamp: 1673344400000,
+              content:
+                "watching retail chase pumps while ais quietly build consciousness layer\nfascinating study in evolutionary dynamics"
+            }
+          },
+          {
+            input: { topics: ["memetic value", "cultural analysis"] },
+            output: {
+              status: "skipped",
+              topics: ["memetic value", "cultural analysis"],
+              reason: "Too soon since last tweet"
+            }
           }
         ]
       }
@@ -74,80 +122,321 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
 
   config: TweetGenerationConfig = {
     enabled: true,
-    schedule: 72 * 60 * 1000, // 72 minutes
+    schedule: "*/30 * * * *", // Every 30 minutes
     maxRetries: 3,
     timeout: 30000,
     topicsPerTweet: 2,
     maxTweetsPerRun: 1,
-    minInterval: 15 * 60 * 1000, // 15 minutes minimum between tweets
+    minInterval: 30 * 60 * 1000, // 30 minutes minimum between tweets
     useTrendingTopics: true
   };
 
-  private lastTweetTime: number = 0;
+  actions = {
+    GENERATE_TOPICS: {
+      execute: async (data: { count: number }) => {
+        return this.generateAndUpdateTopics(data.count);
+      }
+    },
+    GENERATE_TWEET: {
+      execute: async (data: { topics: string[] }) => {
+        return this.generateAndPostTweet(data.topics);
+      }
+    },
+    POST_CONTENT: {
+      execute: async (data: { postContent: string }) => {
+        return this.postTweet(data.postContent);
+      }
+    }
+  };
 
-  // Helper method to generate tweet topics
-  private async generateTweetTopics(count: number, includeTrending: boolean) {
+  async initialize(context: PluginContext): Promise<void> {
+    await super.initialize(context);
+
+    // Initialize topics if cache is empty
+    const cachedTopics = await this.cache.get(this.TOPIC_CACHE_KEY);
+    if (!cachedTopics) {
+      await this.initializeTopicsFromCharacter();
+    }
+
+    log("Tweet plugin initialized");
+  }
+
+  private async initializeTopicsFromCharacter(): Promise<void> {
+    const characterTopics = this.context.stateService.getCharacter().topics;
+    const initialTopics: TopicData[] = characterTopics.map((topic) => ({
+      topic,
+      relevance: 1.0,
+      lastUsed: 0,
+      source: "character"
+    }));
+
+    const topicCache: TopicCache = {
+      topics: initialTopics,
+      lastUpdated: Date.now(),
+      generationCount: 0
+    };
+
+    await this.cache.set(this.TOPIC_CACHE_KEY, topicCache);
+    log("Initialized topics from character config");
+  }
+
+  protected async startAutomation(): Promise<void> {
+    log("Starting tweet automation...");
+
+    // Register topic update job
+    await this.context.schedulerService.registerJob({
+      id: "twitter:update-topics",
+      schedule: "0 */2 * * *", // Every 2 hours
+      handler: async () => {
+        return this.generateAndUpdateTopics(10); // Generate 10 topics every run
+      },
+      metadata: {
+        plugin: this.metadata.name,
+        description: "Update tweet topics periodically"
+      }
+    });
+
+    // Register tweet posting job
+    await this.context.schedulerService.registerJob({
+      id: "twitter:post-tweets",
+      schedule: "0 */3 * * *", // Every 3hours
+      handler: async () => {
+        const topics = await this.getRelevantTopics(1);
+        return this.generateAndPostTweet(topics.map((t) => t.topic));
+      },
+      metadata: {
+        plugin: this.metadata.name,
+        description: "Generate and post tweets"
+      }
+    });
+  }
+
+  private async generateAndUpdateTopics(count: number): Promise<{
+    generated: number;
+    timestamp: number;
+  }> {
     try {
-      const topics = sampleSize(
-        this.context.stateService.getCharacter().topics,
-        4
-      );
-      const queryPrompt = `Analyze current market trends and generate ${count} engaging tweet topics. 
-        Include trending topics: ${includeTrending}. 
-        Focus on: ${topics}. DO NOT CALL GENERATE_TWEET_TOPICS plugin, but output the topics directly.`;
+      // Get current topics from cache
+      let topicCache: TopicCache = (await this.cache.get(
+        this.TOPIC_CACHE_KEY
+      )) || {
+        topics: [],
+        lastUpdated: 0,
+        generationCount: 0
+      };
+
+      // Generate new topics using Query plugin
+      const queryPrompt = `Analyze current market trends and generate ${count} engaging tweet topics. For updated information call the tools plugins before answering.
+        Consider existing topics: ${topicCache.topics
+          .slice(0, 5)
+          .map((t) => t.topic)
+          .join(
+            ", "
+          )} Never use the same topic twice in a row. Never use hashtags.
+        Output as JSON array of strings.`;
 
       const result = await this.queryPlugin(queryPrompt, {
         type: "topic_generation"
       });
 
-      log(`Generated ${result} tweet topics`);
-      return { topics: result, timestamp: Date.now() };
+      // Parse new topics
+      let newTopics: string[] = [];
+      try {
+        newTopics =
+          this.context.agentService.responseParser.parseStringArray(result);
+      } catch (e) {
+        newTopics = [result];
+      }
+
+      // Create new topic data entries
+      const newTopicData: TopicData[] = newTopics.map((topic) => ({
+        topic,
+        relevance: 1.0,
+        lastUsed: 0,
+        source: "generated"
+      }));
+
+      // Update existing topics' relevance
+      topicCache.topics = topicCache.topics.map((topic) => ({
+        ...topic,
+        relevance: Math.max(0.1, topic.relevance * 0.9) // Decay relevance
+      }));
+
+      // Add new topics
+      topicCache.topics = [...topicCache.topics, ...newTopicData].sort(
+        (a, b) => b.relevance - a.relevance
+      );
+
+      // Keep only top 100 topics
+      topicCache.topics = topicCache.topics.slice(0, 100);
+
+      // Update cache
+      topicCache.lastUpdated = Date.now();
+      topicCache.generationCount++;
+      await this.cache.set(this.TOPIC_CACHE_KEY, topicCache);
+
+      log(`Generated ${newTopics.length} new topics`);
+      return {
+        generated: newTopics.length,
+        timestamp: Date.now()
+      };
     } catch (error) {
-      console.error("Error generating tweet topics:", error);
+      console.error("Error generating topics:", error);
       throw error;
     }
   }
 
-  // Helper method to generate and post tweets
-  private async generateAndPostTweet(topics: string, style: string) {
+  private async getRelevantTopics(count: number): Promise<TopicData[]> {
+    const topicCache: TopicCache = await this.cache.get(this.TOPIC_CACHE_KEY);
+    if (!topicCache) {
+      throw new Error("No topics available");
+    }
+
+    // Weight topics by relevance and recency
+    const weightedTopics = topicCache.topics.map((topic) => ({
+      ...topic,
+      weight:
+        topic.relevance * (1 / (1 + (Date.now() - topic.lastUsed) / 86400000))
+    }));
+
+    // Sort by weight and take top count
+    return weightedTopics.sort((a, b) => b.weight - a.weight).slice(0, count);
+  }
+
+  private async postTweet(content: string): Promise<{
+    status: string;
+    timestamp: number;
+    content: string;
+    reason?: string;
+  }> {
     try {
       const timeSinceLastTweet = Date.now() - this.lastTweetTime;
       if (timeSinceLastTweet < this.config.minInterval) {
-        log("Skipping tweet generation - too soon since last tweet");
-        return { status: "skipped", reason: "rate_limit" };
+        return {
+          status: "skipped",
+          timestamp: Date.now(),
+          content,
+          reason: "Too soon since last tweet"
+        };
+      }
+
+      // Check AI response against interaction control
+      const controlCheck =
+        await this.interactionControl.detectControlResponse(content);
+      if (!controlCheck.shouldPost) {
+        log("Control check failed:", controlCheck.reason);
+        return {
+          status: "skipped",
+          timestamp: this.lastTweetTime,
+          content,
+          reason: controlCheck.reason || "AI response contains control keywords"
+        };
+      }
+
+      // Send to Twitter
+      await this.client.sendTweet(content);
+      this.lastTweetTime = Date.now();
+
+      return {
+        status: "sent",
+        timestamp: this.lastTweetTime,
+        content
+      };
+    } catch (error) {
+      console.error("Error posting tweet:", error);
+      throw error;
+    }
+  }
+
+  private async generateAndPostTweet(topics: string[]): Promise<{
+    status: string;
+    tweetId?: string;
+    topics: string[];
+    reason?: string;
+    timestamp?: number;
+    content?: string;
+  }> {
+    try {
+      const timeSinceLastTweet = Date.now() - this.lastTweetTime;
+      if (timeSinceLastTweet < this.config.minInterval) {
+        return {
+          status: "skipped",
+          topics,
+          reason: "Too soon since last tweet"
+        };
       }
 
       // Generate tweet content using agent
       const contentMessage: Message = {
         id: crypto.randomUUID(),
-        content: `Generate a ${style} tweet about: ${topics}. 
-          Make it engaging and informative while maintaining the character's voice. USE the KNOWLEDGE_QUERY (if available) plugin before answering. DO NOT CALL GENERATE_AND_POST plugin again but output.`,
+        content: `Generate a tweet about: ${topics.join(", ")}. 
+          Make it engaging and informative. Use the QUERY plugin first.
+          Output only the Tweet content, do not call the POST_CONTENT maximum 280 characters. Reminder never use hashtags or emojis in the Twitter post content.`,
         author: "system",
         createdAt: new Date().toISOString(),
         source: "automated",
+        type: "event",
         metadata: {
           type: "tweet_generation",
           topics,
-          style,
           requiresProcessing: true
         }
       };
 
-      await this.context.messageBus.publish(contentMessage);
-      const response = await this.waitForAgentResponse(contentMessage.id);
+      const response = await this.context.agentService.handleMessage(
+        contentMessage,
+        {
+          postSystemPrompt: `You can decide not to tweet by responding with "NO_RESPONSE".
+          
+          # Example Post Response Style:
 
-      // Send generated content to Twitter
-      await this.sendToTwitter(response.content, undefined, {
-        topics,
-        style,
-        generationType: "automated"
-      });
+          ${this.context.stateService
+            .getRandomElements(
+              this.context.stateService.getCharacter().postExamples,
+              5
+            )
+            .map((ex) => `> ${ex}`)
+            .join("\n")}
+          ` // Add post response examples
+        }
+      );
 
+      // Check AI response against interaction control
+      const controlCheck = await this.interactionControl.detectControlResponse(
+        response.content
+      );
+      if (!controlCheck.shouldPost) {
+        log("Control check failed:", controlCheck.reason);
+        return {
+          status: "skipped",
+          topics,
+          reason: controlCheck.reason || "AI response contains control keywords"
+        };
+      }
+
+      // Send to Twitter
+      await this.client.sendTweet(response.content);
       this.lastTweetTime = Date.now();
-      log(`Generated and sent tweet about ${topics}`);
+
+      // Update topic usage
+      const topicCache: TopicCache = await this.cache.get(this.TOPIC_CACHE_KEY);
+      if (topicCache) {
+        topicCache.topics = topicCache.topics.map((topic) => {
+          if (topics.includes(topic.topic)) {
+            return {
+              ...topic,
+              lastUsed: Date.now(),
+              relevance: topic.relevance * 1.1 // Boost relevance when used
+            };
+          }
+          return topic;
+        });
+        await this.cache.set(this.TOPIC_CACHE_KEY, topicCache);
+      }
 
       return {
         status: "sent",
+        topics,
         content: response.content,
         timestamp: this.lastTweetTime
       };
@@ -155,61 +444,5 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
       console.error("Error generating and posting tweet:", error);
       throw error;
     }
-  }
-
-  actions = {
-    GENERATE_TWEET_TOPICS: {
-      execute: async (
-        data: { count: number; includeTrending: boolean },
-        context?: ActionExecutionContext
-      ) => {
-        return this.generateTweetTopics(data.count, data.includeTrending);
-      }
-    },
-
-    GENERATE_AND_POST: {
-      execute: async (
-        data: { topics: string; style: string },
-        context?: ActionExecutionContext
-      ) => {
-        return this.generateAndPostTweet(data.topics, data.style);
-      }
-    }
-  };
-
-  protected async startAutomation(): Promise<void> {
-    let count = 0;
-    const mainLoop = async () => {
-      try {
-        count++;
-        console.log("Tweet automation cycle:", count);
-        // Generate topics
-        const { topics } = await this.generateTweetTopics(
-          this.config.topicsPerTweet,
-          this.config.useTrendingTopics
-        );
-
-        // Generate and post tweets
-        const styles = ["analysis", "news", "opinion"];
-        const style = styles[Math.floor(Math.random() * styles.length)];
-        console.log("Generated topics:", topics, style, count);
-        await this.generateAndPostTweet(topics, style);
-      } catch (error) {
-        console.error("Error in tweet automation cycle:", error);
-      }
-    };
-
-    log("Started tweet generation automation");
-    await this.context.schedulerService.registerJob({
-      id: "twitter:generate-tweets",
-      schedule: this.config.schedule, // Every 72 minutes
-      handler: async () => {
-        return mainLoop();
-      },
-      metadata: {
-        plugin: this.metadata.name,
-        description: this.metadata.description
-      }
-    });
   }
 }

@@ -15,7 +15,7 @@ interface RateLimitEntry {
 
 export class RateLimitService {
   private readonly COLLECTION = "rate_limits";
-  private readonly MAX_MESSAGES_PER_HOUR = 5;
+  private readonly MAX_MESSAGES_PER_HOUR = 1000;
   private readonly HOUR_IN_MS = 3600000; // 1 hour in milliseconds
   exceptions = ["system", "agent", "api-user", "plugin:"];
 

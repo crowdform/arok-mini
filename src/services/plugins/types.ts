@@ -7,6 +7,7 @@ import { CacheService } from "../cache.service";
 import { LLMService } from "../llm.service";
 import { StateService } from "../state.service";
 import { SchedulerService } from "../scheduler/scheduler.service";
+import { AgentService } from "../agent.service";
 
 export interface PluginContext {
   messageBus: MessageService;
@@ -15,10 +16,12 @@ export interface PluginContext {
   llmService: LLMService;
   stateService: StateService;
   schedulerService: SchedulerService;
+  agentService: AgentService;
 }
 
 export interface ActionSchema {
   type: string;
+  required: string[];
   properties: Record<
     string,
     {
@@ -37,9 +40,10 @@ export interface ActionSchema {
 export interface ActionMetadata {
   description: string;
   schema: ActionSchema;
+  scope?: string[];
   examples: {
-    input: string;
-    output: string;
+    input: string | Record<string, any>;
+    output: string | Record<string, any>;
   }[];
 }
 
@@ -47,6 +51,7 @@ export interface PluginMetadata {
   name: string;
   description: string;
   version: string;
+  callable: boolean;
   actions: Record<string, ActionMetadata>;
 }
 
@@ -66,7 +71,6 @@ export interface BasePluginInterface {
   initialize(context: PluginContext): Promise<void>;
   start?(): Promise<void> | void;
   shutdown?(): Promise<void> | void;
-  handleMessage?(message: Message): Promise<void>;
 }
 
 // Base Plugin interface without method visibility constraints
