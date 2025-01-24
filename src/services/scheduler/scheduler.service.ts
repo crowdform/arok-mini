@@ -174,7 +174,18 @@ export class SchedulerService {
       });
 
       const nextRun = interval.next().toDate();
-      log("Should run - ", nextRun <= currentTime);
+      // log(
+      //   "Should run - ",
+      //   job.schedule,
+      //   "Last run: ",
+      //   lastRun,
+      //   "Next run: ",
+      //   nextRun,
+      //   "Current time: ",
+      //   currentTime,
+      //   "run now: ",
+      //   nextRun <= currentTime
+      // );
       return nextRun <= currentTime;
     } catch (error) {
       console.error(`Error checking job schedule for ${job.id}:`, error);
@@ -211,14 +222,20 @@ export class SchedulerService {
 
   async processJobs(): Promise<{ timestamp: string; results: JobResult[] }> {
     const currentTime = new Date();
-    const jobsToRun = this.jobs.filter((job) =>
-      this.shouldJobRun(job, currentTime)
+    const jobsToRun = await Promise.all(
+      this.jobs.map(async (job) => ({
+        job,
+        shouldRun: await this.shouldJobRun(job, currentTime)
+      }))
+    ).then((results) =>
+      results.filter(({ shouldRun }) => shouldRun).map(({ job }) => job)
     );
 
     log(`Processing ${jobsToRun.length} jobs`);
     const results = await Promise.all(
       jobsToRun.map((job) => this.executeJob(job))
     );
+    log(results.length, "jobs completed");
 
     return {
       timestamp: currentTime.toISOString(),

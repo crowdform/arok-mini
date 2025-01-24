@@ -9,36 +9,38 @@
     "dev": "DEBUG=arok*  nodemon --exec ts-node src/index.ts",
     "debug": "nodemon --exec ts-node src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc"
+    "build": "tsc",
+    "postinstall": "npm run build"
+  },
+  "engines": {
+    "node": ">=20.x.x"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@ai-sdk/openai": "^1.0.19",
-    "@types/debug": "^4.1.12",
-    "agent-twitter-client": "^0.0.16",
-    "ai": "^4.0.36",
+    "@ai-sdk/openai": "^1.1.2",
+    "agent-twitter-client": "^0.0.18",
+    "ai": "^4.1.2",
     "cron-parser": "^4.9.0",
     "debug": "^4.4.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "firebase": "^11.1.0",
     "lodash": "^4.17.21",
-    "openai": "^4.76.3",
     "prettier": "^3.4.2",
-    "text-to-image": "^7.0.1",
     "uuid": "^11.0.5",
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/bun": "latest",
+    "@types/debug": "^4.1.12",
     "@types/express": "^5.0.0",
     "@types/lodash": "^4.17.13",
     "@types/node": "^22.10.2",
     "nodemon": "^3.1.9",
     "ts-node": "^10.9.2",
-    "typescript": "^5.7.2",
-    "@types/bun": "latest"
+    "typescript": "^5.7.2"
   }
 }

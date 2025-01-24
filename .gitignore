@@ -11,3 +11,6 @@ firestore.indexes.json
 firestore.rules
 .firebaserc
 functions
+_.env
+.env.local
+.env.production

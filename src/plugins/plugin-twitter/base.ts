@@ -6,7 +6,7 @@ import {
 } from "../../services/plugins/types";
 import { Message } from "../../types/message.types";
 import { TwitterClient } from "./twitter.client";
-
+import { TwitterInteractionControl } from "./interaction-control";
 import debug from "debug";
 
 const log = debug("arok:plugin:twitter-automation");
@@ -33,6 +33,7 @@ export abstract class TwitterAutomationPlugin implements ExtendedPlugin {
       reject: (reason?: any) => void;
     }
   > = new Map();
+  public interactionControl!: TwitterInteractionControl;
 
   abstract metadata: PluginMetadata;
   abstract actions: Record<string, PluginAction>;
@@ -43,6 +44,11 @@ export abstract class TwitterAutomationPlugin implements ExtendedPlugin {
     this.cache = context.cacheService;
     log(`Initializing ${this.metadata.name}`);
     this.client = TwitterClient.getInstance(context);
+    this.interactionControl = new TwitterInteractionControl(
+      this.metadata.name,
+      this.context.cacheService,
+      this.context.stateService
+    );
   }
 
   async start() {

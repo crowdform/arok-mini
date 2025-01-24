@@ -15,7 +15,7 @@ import { SchedulerService } from "./scheduler/scheduler.service";
 import type { SchedulerConfig } from "./scheduler/types";
 import { generateText, tool, jsonSchema } from "ai";
 import type { OpenAIProvider } from "@ai-sdk/openai";
-
+import { AIResponseParser } from "../utils";
 const log = debug("arok:agent-service");
 
 export interface AgentConfig {
@@ -41,6 +41,7 @@ export class AgentService {
   private readonly stateService: StateService;
   private readonly llmInstance: OpenAIProvider;
   private tools: Record<string, any> = {};
+  public responseParser: typeof AIResponseParser;
 
   constructor(config: AgentConfig) {
     this.memory = new MemoryService();
@@ -62,6 +63,8 @@ export class AgentService {
       },
       this.cacheService
     );
+
+    this.responseParser = AIResponseParser;
 
     const context = {
       messageBus: this._messageBus,
@@ -137,7 +140,8 @@ export class AgentService {
 
         log(`Plugin-${actionName}`, (plugin as any).actions);
         tools[actionName] = tool({
-          // Convert Zod schema to parameters object
+          // Convert Zod schema to parameters objec
+          description: actionMeta.description,
           // @ts-ignore
           parameters: jsonSchema(actionMeta.schema),
           // Wrapper function to handle tool execution
@@ -162,7 +166,7 @@ export class AgentService {
 
   public async handleMessage(
     message: Message,
-    config: { postSystemPrompt?: string } = {}
+    config: { postSystemPrompt?: string; pluginScope?: string[] } = {}
   ): Promise<Message> {
     if (this.isShuttingDown) {
       log("Agent is shutting down, message rejected:", message.id);
@@ -233,11 +237,24 @@ export class AgentService {
           finishReason
           // @ts-ignore
         }) => {
+          log(toolResults);
+
+          const formatToolResult = (toolResults: any) => {
+            const firstResult = toolResults?.[0];
+
+            if (!firstResult) {
+              return "";
+            }
+
+            const { toolName, result } = firstResult;
+
+            return `Plugin called ${toolName} with result: ${JSON.stringify(result)}`;
+          };
           // Save conversation history
           await this.memory.addMemory({
             ...message,
             id: crypto.randomUUID(),
-            content: text,
+            content: text || formatToolResult(toolResults),
             chainId: message.id,
             metadata: {
               usage,

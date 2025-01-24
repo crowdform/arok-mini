@@ -231,22 +231,38 @@ export class TwitterClient {
   ): Promise<Tweet[]> {
     await this.validateSession();
     try {
+      log(`Searching tweets for query: ${query}`);
       const tweets: Tweet[] = [];
-      for await (const tweet of this.scraper.searchTweets(query, count, mode)) {
+      const results = await this.scraper.fetchSearchTweets(query, count, mode);
+      for (const tweet of results.tweets) {
         tweets.push(tweet);
       }
 
       return tweets;
     } catch (error) {
       console.error("Error searching tweets:", error);
+      // @ts-ignore
+      log(error?.data);
       return [];
     }
+  }
+
+  stripHashtags(text: string) {
+    return text.replace(/#\w+\s*/g, "").trim();
   }
 
   async sendTweet(content: string, replyToId?: string): Promise<boolean> {
     await this.validateSession();
     try {
-      await this.scraper.sendTweet(content, replyToId);
+      const strippedContent = this.stripHashtags(content);
+      if (strippedContent.includes("#")) {
+        throw new Error("Posting tweets with hashtags is not allowed");
+      }
+      if (strippedContent.includes("error")) {
+        throw new Error("Posting tweets with error is not allowed");
+      }
+
+      await this.scraper.sendTweet(strippedContent, replyToId);
       return true;
     } catch (error) {
       console.error("Error sending tweet:", error);
@@ -291,6 +307,7 @@ export class TwitterClient {
       createdAt: tweet?.timestamp
         ? new Date(+tweet?.timestamp).toISOString()
         : new Date().toISOString(),
+      participants: (tweet.userId && [tweet.userId]) || [],
       source: "twitter",
       type: "request",
       requestId: tweet.conversationId,

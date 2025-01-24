@@ -18,6 +18,10 @@ interface APIMessage {
   metadata?: Record<string, any>;
 }
 
+interface EventMessage {
+  [key: string]: any;
+}
+
 interface APIPluginConfig {
   app: express.Application;
 }
@@ -128,7 +132,65 @@ export class APIPlugin implements ExtendedPlugin {
 
   private async setupRoutes() {
     this.app.use(express.json());
+    // @ts-ignore
+    this.app.post("/api/event", async (req: Request, res: Response) => {
+      try {
+        const apiMessage: EventMessage = req.body;
 
+        const responseId = crypto.randomUUID();
+        const message: Message = {
+          id: crypto.randomUUID(),
+          content:
+            "#Notification Event:\n\n```json" +
+            JSON.stringify(apiMessage) +
+            "```" +
+            `\n\n
+            Given the above information, take the one main topic and generate and post content about it in the character style.
+            Do not reply directly but MUST call tools and functions in-order to route this request to the correct function. Use POST_CONTENT mostly.
+            `,
+          author: apiMessage.userId || "event-system-user2",
+          createdAt: new Date().toISOString(),
+          type: "request",
+          source: "api",
+          requestId: responseId,
+          metadata: {
+            ...apiMessage.metadata,
+            responseNeeded: true,
+            responseId
+          }
+        };
+
+        const responseMessage = await this.context.agentService.handleMessage(
+          message,
+          {
+            postSystemPrompt: `\n   \n #Notification Events are incoming data, that you should determine how to handle. Always keep reply in character.
+              \n
+              # Example handling: \n
+              If new content, news, market movement is detected, call POST_CONTENT function with content. \n 
+              Do not repeat yourself so check the previous context for the last actions and posts.
+              Do not reply directly but MUST call tools and functions in-order to route this request to the correct function. Use POST_CONTENT mostly.
+              Focus on one topic from the notification event.
+              Reminder never use hashtags or emojis in the post content.\n
+            `
+          }
+        );
+        res.json({
+          status: "success",
+          data: {
+            messageId: responseMessage.id,
+            content: responseMessage.content,
+            createdAt: responseMessage.createdAt,
+            metadata: responseMessage.metadata
+          }
+        });
+      } catch (error) {
+        console.error("Error processing API message:", error);
+        res.status(500).json({
+          status: "error",
+          error: "Failed to process message"
+        });
+      }
+    });
     // @ts-ignore
     this.app.post("/api/chat", async (req: Request, res: Response) => {
       try {
