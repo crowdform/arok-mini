@@ -8,13 +8,13 @@ export const getSolanaToolsSchema = () => {
   for (const key of actionKeys) {
     const action = ACTIONS[key as keyof typeof ACTIONS];
     tools[key] = tool({
-      // @ts-expect-error Value matches type however TS still shows error
+      //  @ts-ignore
       id: action.name,
       description: `
       ${action.description}
 
       Similes: ${action.similes.map(
-        (simile) => `
+        (simile: string) => `
         ${simile}
       `
       )}
