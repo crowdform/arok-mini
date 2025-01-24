@@ -19,8 +19,8 @@ import {
   TwitterRepliesPlugin,
   TwitterInteractions
 } from "./plugins/plugin-twitter";
-
 import { APIPlugin } from "./plugins/plugin-api";
+import { TelegramPlugin } from "./plugins/plugin-telegram";
 
 async function startServer() {
   try {
@@ -70,10 +70,11 @@ async function startServer() {
 
     // Register plugins
     await agent.registerPlugin(new QueryPlugin());
-    await agent.registerPlugin(new TwitterRepliesPlugin());
+    // await agent.registerPlugin(new TwitterRepliesPlugin());
     await agent.registerPlugin(new TwitterTweetsPlugin());
     await agent.registerPlugin(new APIPlugin({ app }));
-    await agent.registerPlugin(new TwitterInteractions());
+    // await agent.registerPlugin(new TwitterInteractions());
+    await agent.registerPlugin(new TelegramPlugin());
 
     console.log("Clients started successfully");
     // Basic health check endpoint

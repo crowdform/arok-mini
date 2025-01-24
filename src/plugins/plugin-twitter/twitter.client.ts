@@ -137,10 +137,7 @@ export class TwitterClient {
       const hasValidSession = await this.loadSession();
       let isLoggedIn = hasValidSession && (await this.scraper.isLoggedIn());
 
-      // Login if needed
-      if (!isLoggedIn) {
-        log("Performing fresh login");
-        await this.scraper.clearCookies();
+      try {
         await this.scraper.login(
           process.env.PLUGIN_TWITTER_USERNAME!,
           process.env.PLUGIN_TWITTER_PASSWORD!,
@@ -151,8 +148,13 @@ export class TwitterClient {
           process.env.PLUGIN_TWITTER_ACCESS_TOKEN!,
           process.env.PLUGIN_TWITTER_ACCESS_TOKEN_SECRET!
         );
-        // Cache the new session
+
+        // Only save session if login succeeds
         await this.saveSession();
+      } catch (loginError) {
+        console.error("Login failed:", loginError);
+        await this.clearSessionCache(); // Ensure cache is cleared on login failure
+        throw new Error("Failed to authenticate with Twitter");
       }
 
       // Initialize cache state
@@ -163,6 +165,16 @@ export class TwitterClient {
     } catch (error) {
       console.error("Failed to initialize Twitter client:", error);
       throw error;
+    }
+  }
+
+  private async clearSessionCache(): Promise<void> {
+    try {
+      await this.cache.set(this.SESSION_CACHE_KEY, null);
+      await this.scraper.clearCookies();
+      log("Cleared session cache and cookies");
+    } catch (error) {
+      console.error("Error clearing session cache:", error);
     }
   }
 
@@ -284,11 +296,18 @@ export class TwitterClient {
   }
 
   private async validateSession(): Promise<void> {
-    const isLoggedIn = await this.scraper.isLoggedIn();
-    if (!isLoggedIn) {
-      log("Session expired, reinitializing...");
-      this.isInitialized = false;
-      await this.initialize();
+    try {
+      const isLoggedIn = await this.scraper.isLoggedIn();
+      if (!isLoggedIn) {
+        log("Session expired, reinitializing...");
+        this.isInitialized = false;
+        await this.clearSessionCache(); // Clear cache before reinitialization
+        await this.initialize();
+      }
+    } catch (error) {
+      console.error("Session validation failed:", error);
+      await this.clearSessionCache();
+      throw new Error("Failed to validate Twitter session");
     }
   }
 
