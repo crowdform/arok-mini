@@ -17,6 +17,7 @@ import { generateText, tool, jsonSchema } from "ai";
 import type { OpenAIProvider } from "@ai-sdk/openai";
 import { AIResponseParser } from "../utils";
 const log = debug("arok:agent-service");
+import { z } from "zod";
 
 export interface AgentConfig {
   characterConfig: Character;
@@ -142,8 +143,12 @@ export class AgentService {
         tools[actionName] = tool({
           // Convert Zod schema to parameters objec
           description: actionMeta.description,
-          // @ts-ignore
-          parameters: jsonSchema(actionMeta.schema),
+
+          parameters:
+            actionMeta.schema instanceof z.ZodType
+              ? actionMeta.schema
+              : // @ts-ignore
+                jsonSchema(actionMeta.schema),
           // Wrapper function to handle tool execution
           execute: async (params: any) => {
             try {

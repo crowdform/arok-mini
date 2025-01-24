@@ -21,6 +21,7 @@ import {
 } from "./plugins/plugin-twitter";
 import { APIPlugin } from "./plugins/plugin-api";
 import { TelegramPlugin } from "./plugins/plugin-telegram";
+import { SolanaPlugin } from "./plugins/plugin-solana";
 
 async function startServer() {
   try {
@@ -75,6 +76,7 @@ async function startServer() {
     await agent.registerPlugin(new APIPlugin({ app }));
     // await agent.registerPlugin(new TwitterInteractions());
     await agent.registerPlugin(new TelegramPlugin());
+    await agent.registerPlugin(new SolanaPlugin());
 
     console.log("Clients started successfully");
     // Basic health check endpoint
