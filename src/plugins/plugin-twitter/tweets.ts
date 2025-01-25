@@ -197,18 +197,18 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
     });
 
     // Register tweet posting job
-    await this.context.schedulerService.registerJob({
-      id: "twitter:post-tweets",
-      schedule: "0 */3 * * *", // Every 3hours
-      handler: async () => {
-        const topics = await this.getRelevantTopics(1);
-        return this.generateAndPostTweet(topics.map((t) => t.topic));
-      },
-      metadata: {
-        plugin: this.metadata.name,
-        description: "Generate and post tweets"
-      }
-    });
+    // await this.context.schedulerService.registerJob({
+    //   id: "twitter:post-tweets",
+    //   schedule: "0 */3 * * *", // Every 3hours
+    //   handler: async () => {
+    //     const topics = await this.getRelevantTopics(1);
+    //     return this.generateAndPostTweet(topics.map((t) => t.topic));
+    //   },
+    //   metadata: {
+    //     plugin: this.metadata.name,
+    //     description: "Generate and post tweets"
+    //   }
+    // });
   }
 
   private async generateAndUpdateTopics(count: number): Promise<{

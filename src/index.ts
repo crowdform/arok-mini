@@ -21,7 +21,7 @@ import {
 } from "./plugins/plugin-twitter";
 import { APIPlugin } from "./plugins/plugin-api";
 import { TelegramPlugin } from "./plugins/plugin-telegram";
-import { SolanaPlugin } from "./plugins/plugin-solana";
+// import { SolanaPlugin } from "./plugins/plugin-solana";
 
 async function startServer() {
   try {
