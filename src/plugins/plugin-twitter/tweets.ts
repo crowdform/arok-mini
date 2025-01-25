@@ -188,7 +188,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
       id: "twitter:update-topics",
       schedule: "0 */2 * * *", // Every 2 hours
       handler: async () => {
-        return this.generateAndUpdateTopics(10); // Generate 10 topics every run
+        return this.generateAndUpdateTopics(3); // Generate 10 topics every run
       },
       metadata: {
         plugin: this.metadata.name,
@@ -227,12 +227,12 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
 
       // Generate new topics using Query plugin
       const queryPrompt = `Analyze current market trends and generate ${count} engaging tweet topics. For updated information call the tools plugins before answering.
-        Consider existing topics: ${topicCache.topics
-          .slice(0, 5)
+        Past existing topics: ${topicCache.topics
+          .slice(0, 3)
           .map((t) => t.topic)
           .join(
             ", "
-          )} Never use the same topic twice in a row. Never use hashtags.
+          )} Never use the choose the same or similar topics. Each topic should be far apart. Never use hashtags.
         Output as JSON array of strings.`;
 
       const result = await this.queryPlugin(queryPrompt, {
@@ -267,8 +267,8 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
         (a, b) => b.relevance - a.relevance
       );
 
-      // Keep only top 100 topics
-      topicCache.topics = topicCache.topics.slice(0, 100);
+      // Keep only top 5 topics
+      topicCache.topics = topicCache.topics.slice(0, 5);
 
       // Update cache
       topicCache.lastUpdated = Date.now();
@@ -371,7 +371,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
         id: crypto.randomUUID(),
         content: `Generate a tweet about: ${topics.join(", ")}. 
           Make it engaging and informative. Use the QUERY plugin first.
-          Output only the Tweet content, do not call the POST_CONTENT maximum 280 characters. Reminder never use hashtags or emojis in the Twitter post content.`,
+          Output only the Tweet content, do not call the POST_CONTENT maximum 280 characters. Reminder never use hashtags or emojis in the Twitter post content. Never repeat content from previous Tweets`,
         author: "system",
         createdAt: new Date().toISOString(),
         source: "automated",
@@ -387,8 +387,9 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
         contentMessage,
         {
           postSystemPrompt: `You can decide not to tweet by responding with "NO_RESPONSE".
+          Output only the Tweet content as text, do not call the tool POST_CONTENT maximum 280 characters. Reminder never use hashtags or emojis in the Twitter post content. Never repeat content from previous Tweets
           
-          # Example Post Response Style:
+          # Example Post Style:
 
           ${this.context.stateService
             .getRandomElements(

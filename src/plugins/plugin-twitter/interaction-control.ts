@@ -50,6 +50,8 @@ export class TwitterInteractionControl {
       "bot",
       "no_reply",
       "no_response",
+      "no response",
+      "NO RESPONSE",
       "NO_RESPONSE",
       "MUTE_THREAD"
     ],
