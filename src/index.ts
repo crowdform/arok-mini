@@ -52,16 +52,17 @@ async function startServer() {
       headers: {
         "Helicone-Property-Name": `${process.env.PLUGIN_TWITTER_USERNAME}/default`
       },
-      model: "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo"
+      model: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
+      // model: "deepseek-ai/deepseek-llm-67b-chat"
     };
     const llmInstance = createOpenAI({
-      ...openaiConfig
+      ...togetherAiConfig
     });
 
     const agent = new AgentService({
       characterConfig: character,
       llmInstance,
-      llmInstanceModel: openaiConfig.model,
+      llmInstanceModel: togetherAiConfig.model,
       schedulerConfig: {
         mode: "single-node",
         timeZone: "UTC",

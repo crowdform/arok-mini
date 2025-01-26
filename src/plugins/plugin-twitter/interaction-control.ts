@@ -91,6 +91,25 @@ export class TwitterInteractionControl {
       };
     }
 
+    // Check if the output is JSON
+    try {
+      const jsonOutput = JSON.parse(aiOutput);
+
+      // If it's JSON, we only want to process it if it has a 'content' field
+      if (jsonOutput && typeof jsonOutput === "object") {
+        if (!jsonOutput.content) {
+          return {
+            shouldPost: false,
+            reason: "JSON response missing content field"
+          };
+        }
+        // Use the content field for further processing
+        aiOutput = jsonOutput.content;
+      }
+    } catch (e) {
+      // Not JSON or malformed JSON - continue with normal processing
+    }
+
     // Normalize the input
     const normalizedOutput = aiOutput.trim();
 

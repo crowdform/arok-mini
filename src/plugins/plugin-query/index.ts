@@ -120,16 +120,16 @@ export class QueryPlugin implements ExtendedPlugin {
   private context?: PluginContext;
 
   metadata: PluginMetadata = {
-    name: "QUERY",
+    name: "QUERY_KNOWLEDGE",
     description:
       "ALWAYS USE - Query Knowledge (your BRAIN) - always use to begin. Retrieves information about various topics, trends, live prices, $cashtags, tokens, projects, market analysis and should be used for all in depth queries",
     version: "1.0.0",
     callable: true,
     actions: {
-      QUERY: {
+      QUERY_KNOWLEDGE: {
         scope: ["*"],
         description:
-          "ALWAYS USE - Query Knowledge (your BRAIN) - always use to begin. Retrieves information about various topics, trends, live prices, $cashtags, tokens, projects, market analysis and should be used for all in depth queries",
+          "get information from your knowledge base to answer questions. Query Knowledge (your BRAIN) - always use to begin. Retrieves information about various topics, trends, live prices, $cashtags, tokens, projects, market analysis and should be used for all in depth queries",
         schema: {
           type: "object",
           properties: {
@@ -161,7 +161,7 @@ export class QueryPlugin implements ExtendedPlugin {
   };
 
   actions: Record<string, PluginAction> = {
-    QUERY: new QueryAction(this.API_URL, this.API_TOKEN)
+    QUERY_KNOWLEDGE: new QueryAction(this.API_URL, this.API_TOKEN)
   };
 
   async initialize(context: PluginContext): Promise<void> {
