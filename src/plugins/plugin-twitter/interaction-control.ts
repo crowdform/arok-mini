@@ -53,7 +53,10 @@ export class TwitterInteractionControl {
       "no response",
       "NO RESPONSE",
       "NO_RESPONSE",
-      "MUTE_THREAD"
+      "MUTE_THREAD",
+      // tools calling filters
+      "FUNCTION",
+      "function"
     ],
     skipProbability: 0.2 // 20% chance to randomly skip
   };
