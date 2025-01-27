@@ -33,6 +33,23 @@ export class PluginManager {
     }
   }
 
+  getSystemPrompts(): string[] {
+    return Array.from(this.plugins.values())
+      .map((plugin) => {
+        if (
+          "getSystemPrompt" in plugin &&
+          typeof plugin.getSystemPrompt === "function"
+        ) {
+          const prompt = plugin.getSystemPrompt();
+          return prompt
+            ? `\n# Plugin: ${plugin.metadata.name}\n${prompt}`
+            : null;
+        }
+        return null;
+      })
+      .filter((prompt): prompt is string => prompt !== null);
+  }
+
   async handleIntent(
     intent: string,
     message: Message,

@@ -53,6 +53,7 @@ export interface PluginMetadata {
   version: string;
   callable: boolean;
   actions: Record<string, ActionMetadata>;
+  getSystemPrompt?(): string | null;
 }
 
 export interface ActionExecutionContext {

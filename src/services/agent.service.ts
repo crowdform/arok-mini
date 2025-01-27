@@ -105,17 +105,17 @@ export class AgentService {
       log("Starting agent service...");
 
       // Start all registered plugins that have a start method
+
       const plugins = this.pluginManager.getRegisteredPlugins();
-      for (const plugin of plugins) {
-        if ("start" in plugin && typeof plugin.start === "function") {
-          log(`Starting plugin: ${plugin.metadata.name}`);
-          await plugin.start();
+      if (plugins.length > 0) {
+        for (const plugin of plugins) {
+          if ("start" in plugin && typeof plugin.start === "function") {
+            log(`Starting plugin: ${plugin.metadata.name}`);
+            await plugin.start();
+          }
         }
       }
-
       // Convert plugins to tools format
-      // @ts-ignore
-      this.tools = this.convertPluginsToTools(plugins);
 
       this.isStarted = true;
       this.scheduler.initialize();
@@ -126,43 +126,49 @@ export class AgentService {
     }
   }
 
-  private convertPluginsToTools(plugins: Plugin[]): Record<string, any> {
+  private convertPluginsToTools(
+    plugins: (ExtendedPlugin | Plugin)[],
+    scope: string[] = ["*"]
+  ): Record<string, any> {
     const tools: Record<string, any> = {};
 
     for (const plugin of plugins) {
       for (const [actionName, actionMeta] of Object.entries(
         plugin.metadata.actions
       )) {
-        // Only include scoped actions
-        if (!actionMeta?.scope || !actionMeta?.scope.includes("*")) {
-          log(`Skipping action ${actionName} due to scope restrictions`);
+        // Skip if no scope defined
+        if (!actionMeta?.scope) {
           continue;
         }
 
-        log(`Plugin-${actionName}`, (plugin as any).actions);
-        tools[actionName] = tool({
-          // Convert Zod schema to parameters objec
-          description: actionMeta.description,
+        // Check if either array contains '*' or if there's any intersection
+        const hasWildcard =
+          scope.includes("*") || actionMeta.scope.includes("*");
+        // @ts-ignore
+        const hasIntersection = scope.some((s) => actionMeta.scope.includes(s));
 
-          parameters:
-            actionMeta.schema instanceof z.ZodType
-              ? actionMeta.schema
-              : // @ts-ignore
-                jsonSchema(actionMeta.schema),
-          // Wrapper function to handle tool execution
-          execute: async (params: any) => {
-            try {
-              log(`Executing tool ${actionName} with params:`, params);
-              const result = await (plugin as any).actions[actionName].execute(
-                params
-              );
-              return result;
-            } catch (error) {
-              console.error(`Error executing tool ${actionName}:`, error);
-              throw error;
+        if (hasWildcard || hasIntersection) {
+          tools[actionName] = tool({
+            description: actionMeta.description,
+            parameters:
+              actionMeta.schema instanceof z.ZodType
+                ? actionMeta.schema
+                : // @ts-ignore
+                  jsonSchema(actionMeta.schema),
+            execute: async (params: any) => {
+              try {
+                log(`Executing tool ${actionName} with params:`, params);
+                const result = await (plugin as any).actions[
+                  actionName
+                ].execute(params);
+                return result;
+              } catch (error) {
+                console.error(`Error executing tool ${actionName}:`, error);
+                throw error;
+              }
             }
-          }
-        });
+          });
+        }
       }
     }
 
@@ -201,13 +207,25 @@ export class AgentService {
         });
       }
 
+      const plugins = this.pluginManager.getRegisteredPlugins();
+      const availableTools =
+        plugins.length > 0
+          ? this.convertPluginsToTools(plugins, config?.pluginScope || ["*"])
+          : undefined;
+
       // Get conversation context
       const history = await this.memory.getRecentContext(message.author, 5);
 
-      const state = await this.stateService.composeState(message, history);
-      const tools = this.tools;
+      const state = await this.stateService.composeState(
+        message,
+        history,
+        this.pluginManager.getRegisteredPlugins().map((p) => p.metadata)
+      );
 
-      log("Available tools:", Object.keys(tools));
+      log(
+        "Available tools: ",
+        availableTools ? Object.keys(availableTools) : "None"
+      );
 
       // Process with Vercel AI SDK Runtime
       // @ts-ignore
@@ -227,7 +245,7 @@ export class AgentService {
           { role: "user", content: message.content }
         ],
         maxSteps: this.MAX_STEPS,
-        tools,
+        tools: availableTools,
         // experimental_streamTools: true,
         onStepFinish: async ({
           // @ts-ignore

@@ -7,6 +7,7 @@ config();
 import { CharacterLoader } from "./services/character.loader";
 import { AgentService } from "./services/agent.service";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createFireworks } from "@ai-sdk/fireworks";
 import debug from "debug";
 
 const log = debug("arok:init");
@@ -59,10 +60,22 @@ async function startServer() {
       ...togetherAiConfig
     });
 
+    const fireworksModel = process.env.FIREWORKS_MODEL as string;
+    const fireworksInstance = createFireworks({
+      apiKey: process.env.FIREWORKS_API_KEY
+      // baseURL: process.env.FIREWORKS_BASE_URL,
+      // headers: {
+      //   Authorization: `Bearer ${process.env.FIREWORKS_API_KEY}`,
+      //   "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
+      //   "Helicone-Property-Name": `${process.env.PLUGIN_TWITTER_USERNAME}/default`
+      // }
+    });
+
     const agent = new AgentService({
       characterConfig: character,
-      llmInstance,
-      llmInstanceModel: togetherAiConfig.model,
+      // @ts-ignore
+      llmInstance: fireworksInstance,
+      llmInstanceModel: fireworksModel,
       schedulerConfig: {
         mode: "single-node",
         timeZone: "UTC",
@@ -76,7 +89,7 @@ async function startServer() {
     await agent.registerPlugin(new TwitterTweetsPlugin());
     await agent.registerPlugin(new APIPlugin({ app }));
     await agent.registerPlugin(new TwitterInteractions());
-    await agent.registerPlugin(new TelegramPlugin());
+    // await agent.registerPlugin(new TelegramPlugin());
     // await agent.registerPlugin(new SolanaPlugin());
 
     console.log("Clients started successfully");
