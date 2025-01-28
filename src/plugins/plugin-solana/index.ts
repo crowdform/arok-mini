@@ -36,7 +36,15 @@ export class SolanaPlugin implements ExtendedPlugin {
     description: "Solana blockchain integration using Solana Agent Kit",
     version: "1.0.0",
     callable: true,
-    actions: {} // Actions will be populated from Solana Agent Kit tools
+    actions: {}, // Actions will be populated from Solana Agent Kit tools
+    getSystemPrompt: () => `
+        <solana_tools>
+        # Solana Tools - for all Wallet, token and solana actions use solana tools.
+
+        - Use TRADE_ACTION to trade tokens and always return the SolScan url of the transaction as well as the summary of the transaction. Example: Your trade has been executed successfully. You have bought <inputAmount> SOL worth of <token name> tokens. https://solscan.io/tx/<transaction_id>
+        - For TRADE_ACTION look all inputMint, outputMint using LOOKUP_SEARCH_TOKEN first before calling the action to avoid errors.
+        - Use LOOKUP_SEARCH_TOKEN to find tokens from cashtags, names, or addresses. Example: Search for $SOL or Solana, then use the knowledge graph for more information.
+        <solana_tools>`
   };
 
   async initialize(context: PluginContext): Promise<void> {

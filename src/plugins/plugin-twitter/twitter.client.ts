@@ -137,24 +137,27 @@ export class TwitterClient {
       const hasValidSession = await this.loadSession();
       let isLoggedIn = hasValidSession && (await this.scraper.isLoggedIn());
 
-      try {
-        await this.scraper.login(
-          process.env.PLUGIN_TWITTER_USERNAME!,
-          process.env.PLUGIN_TWITTER_PASSWORD!,
-          process.env.PLUGIN_TWITTER_EMAIL!,
-          process.env.PLUGIN_TWITTER_2FA_SECRET!,
-          process.env.PLUGIN_TWITTER_API_KEY!,
-          process.env.PLUGIN_TWITTER_API_SECRET_KEY!,
-          process.env.PLUGIN_TWITTER_ACCESS_TOKEN!,
-          process.env.PLUGIN_TWITTER_ACCESS_TOKEN_SECRET!
-        );
+      // Only attempt login if we don't have a valid session
+      if (!isLoggedIn) {
+        try {
+          await this.scraper.login(
+            process.env.PLUGIN_TWITTER_USERNAME!,
+            process.env.PLUGIN_TWITTER_PASSWORD!,
+            process.env.PLUGIN_TWITTER_EMAIL!,
+            process.env.PLUGIN_TWITTER_2FA_SECRET!,
+            process.env.PLUGIN_TWITTER_API_KEY!,
+            process.env.PLUGIN_TWITTER_API_SECRET_KEY!,
+            process.env.PLUGIN_TWITTER_ACCESS_TOKEN!,
+            process.env.PLUGIN_TWITTER_ACCESS_TOKEN_SECRET!
+          );
 
-        // Only save session if login succeeds
-        await this.saveSession();
-      } catch (loginError) {
-        console.error("Login failed:", loginError);
-        await this.clearSessionCache(); // Ensure cache is cleared on login failure
-        throw new Error("Failed to authenticate with Twitter");
+          // Only save session if login succeeds
+          await this.saveSession();
+        } catch (loginError) {
+          console.error("Login failed:", loginError);
+          await this.clearSessionCache(); // Ensure cache is cleared on login failure
+          throw new Error("Failed to authenticate with Twitter");
+        }
       }
 
       // Initialize cache state
