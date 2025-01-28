@@ -122,11 +122,11 @@ export class QueryPlugin implements ExtendedPlugin {
   metadata: PluginMetadata = {
     name: "QUERY_KNOWLEDGE",
     description:
-      "ALWAYS USE - Query Knowledge (your BRAIN) - always use to begin. Retrieves information about various topics, trends, live prices, $cashtags, tokens, projects, market analysis and should be used for all in depth queries",
+      "ALWAYS USE - Query Knowledge (your BRAIN) - always use to begin. Retrieves information about various topics, trends, tokens, projects, market analysis and should be used for all in depth queries",
     version: "1.0.0",
     callable: true,
     getSystemPrompt: () =>
-      "ALWAYS QUERY_KNOWLEDGE first to get information to answer questions, or get information about various topics, trends, live prices, $cashtags, tokens, projects, market analysis",
+      "QUERY_KNOWLEDGE first to get information to answer questions, or get information about various topics, trends, tokens, projects, market analysis",
     actions: {
       QUERY_KNOWLEDGE: {
         scope: ["*"],
