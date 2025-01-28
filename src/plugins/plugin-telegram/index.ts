@@ -92,7 +92,7 @@ export class TelegramPlugin implements ExtendedPlugin {
 
     if (!this.config.botToken) {
       console.warn("Telegram bot token not found in environment variables");
-      return;
+
       throw new Error(
         "PLUGIN_TELEGRAM_BOT_TOKEN environment variable is required"
       );

@@ -57,7 +57,10 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
           properties: {
             searchTerms: {
               type: "array",
-              items: { type: "string" },
+              items: {
+                type: "string",
+                description: "Individual search term"
+              },
               description: "Terms to search for"
             },
             maxReplies: {

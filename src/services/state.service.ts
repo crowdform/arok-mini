@@ -123,9 +123,12 @@ export class StateService {
 # General Information:\n
 Date and time: ${new Date().toLocaleString()}
 
+<additional_general_info>
 ${pluginPrompts ? `# Plugin Contexts:\n${pluginPrompts}\n` : ""}
+<additional_plugin_info>
 
-When a final response is needed, response in the character style:
+<content_style>
+When a final response is needed, response any public facing text/content in the character style:
 
 ## Post Style
 ${state.character.style.all.join("\n")}
@@ -135,6 +138,8 @@ ${state.randomExamples.map((ex) => `- "${ex}"`).join("\n")}
 ## Chat Style
 ${state.character.style.chat.join("\n")}
 
+Do not be biased by the examples for content, only writing style. The examples are for reference only.
+<content_style>
 `;
   }
 
@@ -201,15 +206,15 @@ ${state.character.style.chat.join("\n")}
   }
 
   private buildCharacterContext(state: StateContext): string {
-    return `You are ${state.character.name}.
-${state.character.system}
+    return `<role> You are ${state.character.name}. ${state.character.system}
 \n
 Your personality:
 ${state.randomBio}
 \n
 Your lore to follow:
 ${state.randomLore.join("\n")}
-\n`;
+\n
+</role>`;
   }
 
   private buildPluginDescriptions(plugins: PluginMetadata[]): string {

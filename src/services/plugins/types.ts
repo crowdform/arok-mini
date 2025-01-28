@@ -19,22 +19,44 @@ export interface PluginContext {
   agentService: AgentService;
 }
 
+export type SchemaPropertyType =
+  | "string"
+  | "number"
+  | "boolean"
+  | "object"
+  | "array"
+  | "null"
+  | "any";
+
+export interface SchemaProperty {
+  type: SchemaPropertyType;
+  description?: string;
+  required?: boolean;
+  enum?: Array<string | number>;
+  pattern?: string;
+  items?: SchemaProperty | SchemaProperty[];
+  properties?: Record<string, SchemaProperty>;
+  additionalProperties?: boolean | SchemaProperty;
+  default?: any;
+  minimum?: number;
+  maximum?: number;
+  minLength?: number;
+  maxLength?: number;
+  format?: string;
+  examples?: any[];
+  nullable?: boolean;
+}
+
 export interface ActionSchema {
-  type: string;
-  required: string[];
-  properties: Record<
-    string,
-    {
-      type: string;
-      description: string;
-      required?: boolean;
-      items?: {
-        type: string;
-      };
-      enum?: string[];
-      pattern?: string;
-    }
-  >;
+  type: SchemaPropertyType;
+  required?: string[];
+  properties: Record<string, SchemaProperty>;
+  additionalProperties?: boolean;
+  description?: string;
+  title?: string;
+  examples?: any[];
+  definitions?: Record<string, SchemaProperty>;
+  $ref?: string;
 }
 
 export interface ActionMetadata {

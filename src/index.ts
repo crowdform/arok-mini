@@ -14,15 +14,7 @@ const log = debug("arok:init");
 
 // plugins
 
-import { QueryPlugin } from "./plugins/plugin-query";
-import {
-  TwitterTweetsPlugin,
-  TwitterRepliesPlugin,
-  TwitterInteractions
-} from "./plugins/plugin-twitter";
-import { APIPlugin } from "./plugins/plugin-api";
-import { TelegramPlugin } from "./plugins/plugin-telegram";
-// import { SolanaPlugin } from "./plugins/plugin-solana";
+import { PluginLoader } from "./services/plugins/plugin.loader";
 
 async function startServer() {
   try {
@@ -62,13 +54,13 @@ async function startServer() {
 
     const fireworksModel = process.env.FIREWORKS_MODEL as string;
     const fireworksInstance = createFireworks({
-      apiKey: process.env.FIREWORKS_API_KEY
-      // baseURL: process.env.FIREWORKS_BASE_URL,
-      // headers: {
-      //   Authorization: `Bearer ${process.env.FIREWORKS_API_KEY}`,
-      //   "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
-      //   "Helicone-Property-Name": `${process.env.PLUGIN_TWITTER_USERNAME}/default`
-      // }
+      apiKey: process.env.FIREWORKS_API_KEY,
+      baseURL: process.env.FIREWORKS_BASE_URL,
+      headers: {
+        Authorization: `Bearer ${process.env.FIREWORKS_API_KEY}`,
+        "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
+        "Helicone-Property-Name": `${process.env.PLUGIN_TWITTER_USERNAME}/default`
+      }
     });
 
     const agent = new AgentService({
@@ -83,14 +75,8 @@ async function startServer() {
       }
     });
 
-    // Register plugins
-    await agent.registerPlugin(new QueryPlugin());
-    await agent.registerPlugin(new TwitterRepliesPlugin());
-    await agent.registerPlugin(new TwitterTweetsPlugin());
-    await agent.registerPlugin(new APIPlugin({ app }));
-    await agent.registerPlugin(new TwitterInteractions());
-    // await agent.registerPlugin(new TelegramPlugin());
-    // await agent.registerPlugin(new SolanaPlugin());
+    const loader = new PluginLoader(agent, app);
+    await loader.loadPlugins(character.plugins);
 
     console.log("Clients started successfully");
     // Basic health check endpoint

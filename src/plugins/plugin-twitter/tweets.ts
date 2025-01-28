@@ -90,7 +90,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
           properties: {
             topics: {
               type: "array",
-              items: { type: "string" },
+              items: { type: "string", description: "Topics to tweet about" },
               description: "Topics to tweet about"
             }
           },
