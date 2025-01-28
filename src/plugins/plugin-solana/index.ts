@@ -1,9 +1,12 @@
+import "rpc-websockets/dist/lib/client";
+
 import {
   ExtendedPlugin,
   PluginAction,
   PluginContext,
   PluginMetadata
 } from "../../services/plugins/types";
+
 import { Message } from "../../types/message.types";
 import debug from "debug";
 import { Keypair } from "@solana/web3.js";
