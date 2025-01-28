@@ -7,6 +7,7 @@ import {
 } from "../../services/plugins/types";
 import { Message } from "../../types/message.types";
 import debug from "debug";
+import { set } from "lodash";
 
 const log = debug("arok:plugin:telegram");
 
@@ -29,6 +30,7 @@ export class TelegramPlugin implements ExtendedPlugin {
   private context!: PluginContext;
   private readonly config: TelegramConfig;
   private isInitialized: boolean = false;
+  private retryCount: number = 0;
 
   metadata: PluginMetadata = {
     name: "telegram",
@@ -278,18 +280,45 @@ export class TelegramPlugin implements ExtendedPlugin {
         }))
       ]);
 
-      // Start the bot
-      this.bot.start({
-        onStart: () => {
-          log("Telegram bot started");
-          this.isInitialized = true;
-        }
-      });
-
       log("Telegram plugin initialized");
     } catch (error) {
       console.error("Error initializing Telegram plugin:", error);
       throw error;
+    }
+  }
+
+  start(): Promise<void> | void {
+    this.retryCount = 0;
+    try {
+      if (!this.isInitialized) {
+        // Start the bot
+        this.bot.start({
+          onStart: () => {
+            log("Telegram bot started");
+            this.isInitialized = true;
+          }
+        });
+        this.isInitialized = true;
+        log("Telegram plugin started");
+
+        this.bot.catch((error) => {
+          console.error("Telegram bot error:", error);
+        });
+      }
+    } catch (error) {
+      this.retryCount++;
+      if (this.retryCount < 5) {
+        setTimeout(() => {
+          console.log(
+            "Retrying to start Telegram bot... count: ",
+            this.retryCount
+          );
+          this.initialize(this.context);
+        }, 5000 * this.retryCount);
+      } else {
+        console.error("Failed to start Telegram bot:");
+        console.error(error);
+      }
     }
   }
 

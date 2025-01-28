@@ -8,6 +8,7 @@ import { LLMService } from "../llm.service";
 import { StateService } from "../state.service";
 import { SchedulerService } from "../scheduler/scheduler.service";
 import { AgentService } from "../agent.service";
+import { z } from "zod";
 
 export interface PluginContext {
   messageBus: MessageService;
@@ -104,4 +105,39 @@ export interface Plugin extends BasePluginInterface {
 // Extended Plugin interface that includes PluginAction interface
 export interface ExtendedPlugin extends BasePluginInterface {
   actions: Record<string, PluginAction>;
+}
+
+// Simple actions
+export interface ActionExample {
+  input: Record<string, any>;
+  output: Record<string, any>;
+  explanation: string;
+}
+
+export interface Action {
+  /**
+   * Unique name of the action
+   */
+  name: string;
+  /**
+   * Alternative names/phrases that can trigger this action
+   */
+  similes: string[];
+  /**
+   * Detailed description of what the action does
+   */
+  description: string;
+  /**
+   * Array of example inputs and outputs for the action
+   * Each inner array represents a group of related examples
+   */
+  examples: ActionExample[][];
+  /**
+   * Zod schema for input validation
+   */
+  schema: z.ZodType<any>;
+  /**
+   * Function that executes the action
+   */
+  handler: Handler;
 }
