@@ -2,7 +2,7 @@ import { Action } from "../../../services/plugins/types";
 import { TwitterClient } from "../twitter.client";
 import { z } from "zod";
 
-const repostTweetAction: Action = {
+const repostTweetAction: Action<TwitterClient> = {
   name: "REPOST_TWEET",
   similes: [
     "retweet",
@@ -62,23 +62,20 @@ const repostTweetAction: Action = {
       const { tweetId, quote } = input;
 
       if (quote) {
-        const result = await twitterClient.scraper.sendQuoteTweet(
-          quote,
-          tweetId
-        );
+        await twitterClient.scraper.sendQuoteTweet(quote, tweetId);
         return {
           status: "success",
           data: {
-            retweetId: result.tweetId,
-            quoteTweetId: result.quoteTweetId
+            retweetId: tweetId,
+            quote: quote
           }
         };
       } else {
-        const result = await twitterClient.scraper.retweet(tweetId);
+        await twitterClient.scraper.retweet(tweetId);
         return {
           status: "success",
           data: {
-            retweetId: result.tweetId
+            retweetId: tweetId
           }
         };
       }

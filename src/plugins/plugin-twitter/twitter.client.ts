@@ -20,7 +20,7 @@ interface TwitterCookie {
 
 export class TwitterClient {
   private static instance: TwitterClient;
-  private scraper: Scraper;
+  public scraper: Scraper;
   private messageBus: PluginContext["messageBus"];
   private cache!: PluginContext["cacheService"];
   private isInitialized: boolean = false;

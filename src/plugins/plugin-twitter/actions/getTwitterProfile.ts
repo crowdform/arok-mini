@@ -2,7 +2,7 @@ import { Action } from "../../../services/plugins/types";
 import { TwitterClient } from "../twitter.client";
 import { z } from "zod";
 
-const getProfileAction: Action = {
+const getProfileAction: Action<TwitterClient> = {
   name: "GET_PROFILE",
   similes: [
     "get user",
@@ -78,19 +78,7 @@ const getProfileAction: Action = {
       return {
         status: "success",
         data: {
-          userId: profile.userId,
-          name: profile.name,
-          username: profile.username,
-          description: profile.description,
-          followers: profile.followers,
-          following: profile.following,
-          tweets: profile.tweets,
-          verified: profile.verified,
-          protected: profile.protected,
-          joinDate: profile.joinDate,
-          location: profile.location,
-          website: profile.website,
-          pinnedTweet: profile.pinnedTweet
+          ...profile
         }
       };
     } catch (error: any) {

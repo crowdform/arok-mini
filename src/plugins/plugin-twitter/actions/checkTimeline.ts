@@ -13,7 +13,7 @@ interface EngagementOpportunity {
   reason: string;
 }
 
-const checkTimelineAction: Action = {
+const checkTimelineAction: Action<TwitterClient> = {
   name: "CHECK_TIMELINE",
   similes: [
     "fetch timeline",
@@ -84,17 +84,20 @@ const checkTimelineAction: Action = {
   handler: async (twitterClient: TwitterClient, input: Record<string, any>) => {
     try {
       const { count, seenTweets = [] } = input;
-      const seenTweetsSet = new Set(seenTweets);
+      const seenTweetsSet = new Set(seenTweets) as Set<string>;
 
       // Fetch timeline tweets
-      const results = await twitterClient.scraper.fetchHomeTimeline(count);
+      const results = await twitterClient.scraper.fetchHomeTimeline(
+        count,
+        Array.from(seenTweetsSet)
+      );
 
-      if (!results || !results.tweets) {
+      if (!results || !Array.isArray(results)) {
         throw new Error("Failed to fetch timeline");
       }
 
       // Filter out seen tweets and process new ones
-      const newTweets = results.tweets.filter(
+      const newTweets = results.filter(
         (tweet) => tweet.id && !seenTweetsSet.has(tweet.id)
       );
 
@@ -140,6 +143,7 @@ const checkTimelineAction: Action = {
             score: opp.score,
             reason: opp.reason
           })),
+          // @ts-ignore
           cursor: results.next
         }
       };

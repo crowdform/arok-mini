@@ -2,7 +2,7 @@ import { Action } from "../../../services/plugins/types";
 import { TwitterClient } from "../twitter.client";
 import { z } from "zod";
 
-const sendTweetAction: Action = {
+const sendTweetAction: Action<TwitterClient> = {
   name: "SEND_TWEET",
   similes: [
     "post tweet",
@@ -70,7 +70,7 @@ const sendTweetAction: Action = {
       return {
         status: "success",
         data: {
-          tweetId: result.tweetId,
+          tweetId: result,
           ...(replyTo && { inReplyTo: replyTo })
         }
       };

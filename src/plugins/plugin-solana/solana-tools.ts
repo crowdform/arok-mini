@@ -11,7 +11,7 @@ const whitelist = [
   "BALANCE_ACTION",
   "TRANSFER_ACTION",
   "TRADE_ACTION",
-  // "GET_TOKEN_DATA_ACTION",
+  "GET_TOKEN_DATA_ACTION",
   "FETCH_PRICE_ACTION",
   "PYTH_FETCH_PRICE_ACTION",
   "GET_ASSETS_BY_OWNER_ACTION",
@@ -57,3 +57,31 @@ export const getSolanaToolsSchema = () => {
 
 export const getAction = (key: string) =>
   ALL_ACTIONS[key as keyof typeof ACTIONS];
+
+export const removeNullValues = (params: any): any => {
+  if (!params || typeof params !== "object") {
+    return params;
+  }
+
+  // Handle arrays
+  if (Array.isArray(params)) {
+    return params
+      .filter((item) => item !== null || item !== "null")
+      .map((item) => removeNullValues(item));
+  }
+
+  // Handle objects
+  const cleanedParams = {} as any;
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value === "null") {
+      return;
+    }
+    if (value !== null) {
+      cleanedParams[key] =
+        typeof value === "object" ? removeNullValues(value) : value;
+    }
+  }
+
+  return cleanedParams;
+};

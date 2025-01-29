@@ -88,7 +88,7 @@ function calculateTweetMetrics(tweets: Tweet[]): TweetMetrics {
   };
 }
 
-const getTweetsAction: Action = {
+const getTweetsAction: Action<TwitterClient> = {
   name: "GET_TWEETS",
   similes: [
     "fetch tweets",
@@ -214,6 +214,7 @@ const getTweetsAction: Action = {
 
         if (includeReplies) {
           const iterator = twitterClient.scraper.getTweetsAndReplies(
+            // @ts-ignore
             profile.username
           );
           for await (const tweet of iterator) {
@@ -221,6 +222,7 @@ const getTweetsAction: Action = {
             if (tweets.length >= count) break;
           }
         } else {
+          // @ts-ignore
           const iterator = twitterClient.scraper.getTweets(profile.username);
           for await (const tweet of iterator) {
             tweets.push(tweet);

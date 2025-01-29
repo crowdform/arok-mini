@@ -234,6 +234,11 @@ export class AgentService {
         usage,
         steps
       } = await generateText({
+        headers: {
+          "Helicone-Session-Id": message.id,
+          "Helicone-Session-Path": `/Users/${message.author}`,
+          "Helicone-Session-Name": message.source
+        },
         // @ts-ignore
         model: this.llmInstance(this.llm.llmInstanceModel),
         system:
@@ -246,6 +251,7 @@ export class AgentService {
         ],
         maxSteps: this.MAX_STEPS,
         tools: availableTools,
+        // experimental_continueSteps: true,
         // experimental_streamTools: true,
         onStepFinish: async ({
           // @ts-ignore

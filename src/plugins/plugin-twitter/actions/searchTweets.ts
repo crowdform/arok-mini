@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { SearchMode } from "agent-twitter-client";
 
-const searchTweetsAction: Action = {
+const searchTweetsAction: Action<TwitterClient> = {
   name: "SEARCH_TWEETS",
   similes: [
     "find tweets",

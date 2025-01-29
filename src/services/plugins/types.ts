@@ -114,7 +114,7 @@ export interface ActionExample {
   explanation: string;
 }
 
-export interface Action {
+export interface Action<K = any> {
   /**
    * Unique name of the action
    */
@@ -139,5 +139,10 @@ export interface Action {
   /**
    * Function that executes the action
    */
-  handler: Handler;
+  handler: Handler<K>;
 }
+
+export type Handler<K> = (
+  context: K,
+  input: Record<string, any>
+) => Promise<Record<string, any>>;
