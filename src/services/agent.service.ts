@@ -36,7 +36,7 @@ export class AgentService {
   private readonly rateLimit: RateLimitService;
   private isShuttingDown: boolean = false;
   private isStarted: boolean = false;
-  private readonly MAX_STEPS = 10; // Maximum number of iterations
+  private readonly MAX_STEPS = 5; // Maximum number of iterations
   private readonly scheduler: SchedulerService;
   private readonly cacheService: CacheService;
   private readonly stateService: StateService;
@@ -128,7 +128,8 @@ export class AgentService {
 
   private convertPluginsToTools(
     plugins: (ExtendedPlugin | Plugin)[],
-    scope: string[] = ["*"]
+    scope: string[] = ["*"],
+    pluginActions: string[] = []
   ): Record<string, any> {
     const tools: Record<string, any> = {};
 
@@ -138,6 +139,10 @@ export class AgentService {
       )) {
         // Skip if no scope defined
         if (!actionMeta?.scope) {
+          continue;
+        }
+
+        if (pluginActions.length > 0 && !pluginActions.includes(actionName)) {
           continue;
         }
 
@@ -177,7 +182,11 @@ export class AgentService {
 
   public async handleMessage(
     message: Message,
-    config: { postSystemPrompt?: string; pluginScope?: string[] } = {}
+    config: {
+      postSystemPrompt?: string;
+      pluginScope?: string[];
+      pluginActions?: string[];
+    } = {}
   ): Promise<Message> {
     if (this.isShuttingDown) {
       log("Agent is shutting down, message rejected:", message.id);
@@ -210,7 +219,11 @@ export class AgentService {
       const plugins = this.pluginManager.getRegisteredPlugins();
       const availableTools =
         plugins.length > 0
-          ? this.convertPluginsToTools(plugins, config?.pluginScope || ["*"])
+          ? this.convertPluginsToTools(
+              plugins,
+              config?.pluginScope || ["*"],
+              config?.pluginActions || []
+            )
           : undefined;
 
       // Get conversation context
@@ -239,6 +252,7 @@ export class AgentService {
           "Helicone-Session-Path": `/Users/${message.author}`,
           "Helicone-Session-Name": message.source
         },
+        toolChoice: "auto",
         // @ts-ignore
         model: this.llmInstance(this.llm.llmInstanceModel),
         system:
@@ -251,6 +265,7 @@ export class AgentService {
         ],
         maxSteps: this.MAX_STEPS,
         tools: availableTools,
+        temperature: 0.2,
         // experimental_continueSteps: true,
         // experimental_streamTools: true,
         onStepFinish: async ({
@@ -277,19 +292,20 @@ export class AgentService {
 
             const { toolName, result } = firstResult;
 
-            return `Plugin called ${toolName} with result: ${JSON.stringify(result)}`;
+            return `Plugin called ${toolName} with result: ${JSON.stringify(result)}, reason: ${finishReason}`;
           };
           // Save conversation history
-          await this.memory.addMemory({
-            ...message,
-            id: crypto.randomUUID(),
-            content: text || formatToolResult(toolResults),
-            chainId: message.id,
-            metadata: {
-              usage,
-              toolResults
-            }
-          });
+          // await this.memory.addMemory({
+          //   ...message,
+          //   id: crypto.randomUUID(),
+          //   content: text || formatToolResult(toolResults),
+          //   chainId: message.id,
+          //   metadata: {
+          //     usage,
+          //     toolResults,
+          //     finishReason
+          //   }
+          // });
         }
       });
 

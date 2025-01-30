@@ -21,6 +21,11 @@ export class PluginLoader {
         () => import("../../plugins/plugin-query").then((m) => m.QueryPlugin)
       ],
       [
+        "twitter-actions",
+        () =>
+          import("../../plugins/plugin-twitter").then((m) => m.TwitterPlugin)
+      ],
+      [
         "twitter-replies",
         () =>
           import("../../plugins/plugin-twitter").then(

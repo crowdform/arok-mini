@@ -38,16 +38,9 @@ export class TwitterInteractionControl {
     threadTimeout: 48 * 60 * 60 * 1000, // 24 hours
     minEngagementScore: 0,
     noResponseKeywords: [
-      "stop",
-      "quiet",
-      "shut up",
-      "no more",
-      "silence",
-      "enough",
       "blocked",
       "reported",
       "spam",
-      "bot",
       "no_reply",
       "no_response",
       "no response",
@@ -56,7 +49,10 @@ export class TwitterInteractionControl {
       "MUTE_THREAD",
       // tools calling filters
       "FUNCTION",
-      "function"
+      "function",
+      "{",
+      "}",
+      "["
     ],
     skipProbability: 0.2 // 20% chance to randomly skip
   };

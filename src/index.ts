@@ -45,8 +45,9 @@ async function startServer() {
       headers: {
         "Helicone-Property-Name": `${process.env.PLUGIN_TWITTER_USERNAME}/default`
       },
-      model: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
+      // model: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
       // model: "deepseek-ai/deepseek-llm-67b-chat"
+      model: "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo"
     };
     const llmInstance = createOpenAI({
       ...togetherAiConfig
@@ -66,7 +67,7 @@ async function startServer() {
     const agent = new AgentService({
       characterConfig: character,
       // @ts-ignore
-      llmInstance: fireworksInstance,
+      llmInstance: fireworksInstance.chatModel,
       llmInstanceModel: fireworksModel,
       schedulerConfig: {
         mode: "single-node",

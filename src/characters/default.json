@@ -6,6 +6,7 @@
     "twitter-replies",
     "twitter-tweets",
     "twitter-interactions",
+    "twitter-actions",
     "telegram",
     "solana"
   ],

@@ -140,6 +140,14 @@ ${state.character.style.chat.join("\n")}
 
 Do not be biased by the examples for content, only writing style. The examples are for reference only.
 <content_style>
+
+<hints>
+- never output JSON or code and call the output final
+- prioritize the tools and function calling before answer. 
+- always plan first how you should answer the user, and think hard about it then execute it over the multiple tools calls before answering.
+- always think about the user's perspective and how they would understand the answer.
+- If you do not know the answer, you can ask the user for more information or tell them you do not know.
+</hints>
 `;
   }
 
