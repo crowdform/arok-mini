@@ -49,9 +49,10 @@ export class TwitterPlugin extends TwitterAutomationPlugin {
         execute: async (params: any) => {
           try {
             log(`Executing Twitter action ${key}`);
-
+            const result = await action.handler(this.client, params);
+            const json = JSON.parse(JSON.stringify(result, null, 2));
             // Execute action with Twitter client
-            return await action.handler(this.client, params);
+            return json;
           } catch (error) {
             console.error(`Error executing Twitter action ${key}:`, error);
             throw error;

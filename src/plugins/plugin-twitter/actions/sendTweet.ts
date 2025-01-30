@@ -51,7 +51,12 @@ const sendTweetAction: Action<TwitterClient> = {
   ],
   schema: z.object({
     content: z.string().min(1).max(280).describe("The tweet content to post"),
-    replyTo: z.string().optional().describe("Optional ID of tweet to reply to")
+    replyTo: z
+      .string()
+      .optional()
+      .describe(
+        "Optional ID of tweet to reply to | leave empty to post a new tweet"
+      )
     // mediaFiles: z
     //   .array(z.any())
     //   .optional()
@@ -59,19 +64,18 @@ const sendTweetAction: Action<TwitterClient> = {
   }),
   handler: async (twitterClient: TwitterClient, input: Record<string, any>) => {
     try {
-      const { content, replyTo, mediaFiles } = input;
-
-      const result = await twitterClient.scraper.sendTweet(
+      const {
         content,
-        replyTo,
-        mediaFiles
-      );
+        replyTo
+        //mediaFiles
+      } = input;
+
+      const result = await twitterClient.scraper.sendTweet(content, replyTo);
 
       return {
         status: "success",
         data: {
-          tweetId: result,
-          ...(replyTo && { inReplyTo: replyTo })
+          tweetId: result
         }
       };
     } catch (error: any) {

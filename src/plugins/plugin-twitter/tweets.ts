@@ -185,7 +185,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
     // Register topic update job
     await this.context.schedulerService.registerJob({
       id: "twitter:update-topics",
-      schedule: "0 */2 * * *", // Every 2 hours
+      schedule: "0 */4 * * *", // Every 2 hours
       handler: async () => {
         return this.generateAndUpdateTopics(3); // Generate 10 topics every run
       },
