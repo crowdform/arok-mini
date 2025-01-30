@@ -354,6 +354,9 @@ Consider:
             completed: goal.completed
           }));
 
+        log("Relevant goals:", relevantGoals);
+
+        log("Checking activities with data:", this.activities.values());
         // Get associated activities
         const relevantActivities = Array.from(this.activities.values())
           .filter((activity) => {
