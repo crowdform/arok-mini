@@ -743,7 +743,7 @@ Consider:
     const message: Message = {
       id: crypto.randomUUID(),
       content: `Activity ${action}: ${activity.title}`,
-      author: "system",
+      author: "agent",
       type: "event",
       source: "automated",
       createdAt: new Date().toISOString(),
@@ -794,7 +794,7 @@ Consider:
       id: crypto.randomUUID(),
       content:
         "Generate 3 strategic goals for today based on current market conditions and ongoing activities.",
-      author: "system",
+      author: "agent",
       type: "request",
       source: "automated",
       createdAt: new Date().toISOString(),

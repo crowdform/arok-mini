@@ -66,7 +66,7 @@ export abstract class TwitterAutomationPlugin implements ExtendedPlugin {
     const twitterMessage: Message = {
       id: crypto.randomUUID(),
       content,
-      author: "system",
+      author: "agent",
       createdAt: new Date().toISOString(),
       source: "twitter",
       requestId: replyTo,
@@ -92,7 +92,7 @@ export abstract class TwitterAutomationPlugin implements ExtendedPlugin {
     const queryMessage: Message = {
       id: crypto.randomUUID(),
       content: prompt,
-      author: "system",
+      author: "agent",
       createdAt: new Date().toISOString(),
       source: "automated",
       type: "request",
