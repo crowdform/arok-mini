@@ -16,7 +16,6 @@ import { stringToUuid } from "../utils";
 const log = debug("arok:memory-service");
 
 const getRoomId = (participants: string[]): string => {
-  console.log("participants", participants, participants.join("-"));
   return stringToUuid(participants.join("-"));
 };
 
