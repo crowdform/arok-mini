@@ -677,6 +677,7 @@ Consider:
       content: `Execute scheduled activity: ${activity.title}\n${activity.description}, Priority: ${activity.priority}, Tags: ${activity.tags?.join(", ")}`,
       author: `system-activity-${activity.id}`,
       type: "request",
+      participants: ["agent", `system-activity-${activity.id}`],
       source: "automated",
       createdAt: new Date().toISOString(),
       metadata: {
@@ -745,6 +746,7 @@ Consider:
       content: `Activity ${action}: ${activity.title}`,
       author: "agent",
       type: "event",
+      participants: ["agent", `system-activity-${activity.id}`],
       source: "automated",
       createdAt: new Date().toISOString(),
       metadata: {
