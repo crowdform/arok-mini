@@ -257,12 +257,8 @@ export class AgentService {
         model: this.llmInstance(this.llm.llmInstanceModel),
         system:
           this.stateService.buildSystemPrompt(state) + config?.postSystemPrompt,
-        messages: [
-          // @ts-ignore
-          ...this.stateService.buildHistoryContext(state).reverse(),
-          // @ts-ignore
-          { role: "user", content: message.content }
-        ],
+        // @ts-ignore
+        messages: [...this.stateService.buildHistoryContext(state).reverse()],
         maxSteps: this.MAX_STEPS,
         tools: availableTools,
         temperature: 0.2,
@@ -295,17 +291,18 @@ export class AgentService {
             return `Plugin called ${toolName} with result: ${JSON.stringify(result)}, reason: ${finishReason}`;
           };
           // Save conversation history
-          // await this.memory.addMemory({
-          //   ...message,
-          //   id: crypto.randomUUID(),
-          //   content: text || formatToolResult(toolResults),
-          //   chainId: message.id,
-          //   metadata: {
-          //     usage,
-          //     toolResults,
-          //     finishReason
-          //   }
-          // });
+          await this.memory.addMemory({
+            ...message,
+            id: crypto.randomUUID(),
+            content: text || formatToolResult(toolResults),
+            chainId: message.id,
+            author: "agent",
+            metadata: {
+              usage,
+              toolResults,
+              finishReason
+            }
+          });
         }
       });
 

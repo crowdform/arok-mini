@@ -125,7 +125,7 @@ Date and time: ${new Date().toLocaleString()}
 
 <additional_general_info>
 ${pluginPrompts ? `# Plugin Contexts:\n${pluginPrompts}\n` : ""}
-<additional_plugin_info>
+</additional_plugin_info>
 
 <content_style>
 When a final response is needed, response any public facing text/content in the character style:
@@ -178,10 +178,10 @@ Do not be biased by the examples for content, only writing style. The examples a
 
   private getPluginPrompts(plugins: PluginMetadata[]): string {
     const pluginPrompts = plugins
-      .map(
-        (plugin) =>
-          typeof plugin?.getSystemPrompt == "function" &&
-          plugin.getSystemPrompt()
+      .map((plugin) =>
+        typeof plugin?.getSystemPrompt == "function"
+          ? plugin.getSystemPrompt()
+          : null
       )
       .filter((prompt): prompt is string => prompt !== null)
       .join("\n\n");
