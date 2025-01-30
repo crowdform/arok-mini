@@ -38,20 +38,22 @@ export class TwitterInteractionControl {
     threadTimeout: 48 * 60 * 60 * 1000, // 24 hours
     minEngagementScore: 0,
     noResponseKeywords: [
-      "stop",
-      "quiet",
-      "shut up",
-      "no more",
-      "silence",
-      "enough",
       "blocked",
       "reported",
       "spam",
-      "bot",
       "no_reply",
       "no_response",
+      "no response",
+      "NO RESPONSE",
       "NO_RESPONSE",
-      "MUTE_THREAD"
+      "MUTE_THREAD",
+      // tools calling filters
+      "FUNCTION",
+      "function",
+      "{",
+      "}",
+      "[",
+      '"name"'
     ],
     skipProbability: 0.2 // 20% chance to randomly skip
   };
@@ -87,6 +89,25 @@ export class TwitterInteractionControl {
         shouldPost: false,
         reason: "Empty output"
       };
+    }
+
+    // Check if the output is JSON
+    try {
+      const jsonOutput = JSON.parse(aiOutput);
+
+      // If it's JSON, we only want to process it if it has a 'content' field
+      if (jsonOutput && typeof jsonOutput === "object") {
+        if (!jsonOutput.content) {
+          return {
+            shouldPost: false,
+            reason: "JSON response missing content field"
+          };
+        }
+        // Use the content field for further processing
+        aiOutput = jsonOutput.content;
+      }
+    } catch (e) {
+      // Not JSON or malformed JSON - continue with normal processing
     }
 
     // Normalize the input

@@ -18,6 +18,7 @@ import type { OpenAIProvider } from "@ai-sdk/openai";
 import { AIResponseParser } from "../utils";
 const log = debug("arok:agent-service");
 import { z } from "zod";
+import { get } from "lodash";
 
 export interface AgentConfig {
   characterConfig: Character;
@@ -36,7 +37,7 @@ export class AgentService {
   private readonly rateLimit: RateLimitService;
   private isShuttingDown: boolean = false;
   private isStarted: boolean = false;
-  private readonly MAX_STEPS = 10; // Maximum number of iterations
+  private readonly MAX_STEPS = 5; // Maximum number of iterations
   private readonly scheduler: SchedulerService;
   private readonly cacheService: CacheService;
   private readonly stateService: StateService;
@@ -105,17 +106,17 @@ export class AgentService {
       log("Starting agent service...");
 
       // Start all registered plugins that have a start method
+
       const plugins = this.pluginManager.getRegisteredPlugins();
-      for (const plugin of plugins) {
-        if ("start" in plugin && typeof plugin.start === "function") {
-          log(`Starting plugin: ${plugin.metadata.name}`);
-          await plugin.start();
+      if (plugins.length > 0) {
+        for (const plugin of plugins) {
+          if ("start" in plugin && typeof plugin.start === "function") {
+            log(`Starting plugin: ${plugin.metadata.name}`);
+            await plugin.start();
+          }
         }
       }
-
       // Convert plugins to tools format
-      // @ts-ignore
-      this.tools = this.convertPluginsToTools(plugins);
 
       this.isStarted = true;
       this.scheduler.initialize();
@@ -126,43 +127,54 @@ export class AgentService {
     }
   }
 
-  private convertPluginsToTools(plugins: Plugin[]): Record<string, any> {
+  private convertPluginsToTools(
+    plugins: (ExtendedPlugin | Plugin)[],
+    scope: string[] = ["*"],
+    pluginActions: string[] = []
+  ): Record<string, any> {
     const tools: Record<string, any> = {};
 
     for (const plugin of plugins) {
       for (const [actionName, actionMeta] of Object.entries(
         plugin.metadata.actions
       )) {
-        // Only include scoped actions
-        if (!actionMeta?.scope || !actionMeta?.scope.includes("*")) {
-          log(`Skipping action ${actionName} due to scope restrictions`);
+        // Skip if no scope defined
+        if (!actionMeta?.scope) {
           continue;
         }
 
-        log(`Plugin-${actionName}`, (plugin as any).actions);
-        tools[actionName] = tool({
-          // Convert Zod schema to parameters objec
-          description: actionMeta.description,
+        if (pluginActions.length > 0 && !pluginActions.includes(actionName)) {
+          continue;
+        }
 
-          parameters:
-            actionMeta.schema instanceof z.ZodType
-              ? actionMeta.schema
-              : // @ts-ignore
-                jsonSchema(actionMeta.schema),
-          // Wrapper function to handle tool execution
-          execute: async (params: any) => {
-            try {
-              log(`Executing tool ${actionName} with params:`, params);
-              const result = await (plugin as any).actions[actionName].execute(
-                params
-              );
-              return result;
-            } catch (error) {
-              console.error(`Error executing tool ${actionName}:`, error);
-              throw error;
+        // Check if either array contains '*' or if there's any intersection
+        const hasWildcard =
+          scope.includes("*") || actionMeta.scope.includes("*");
+        // @ts-ignore
+        const hasIntersection = scope.some((s) => actionMeta.scope.includes(s));
+
+        if (hasWildcard || hasIntersection) {
+          tools[actionName] = tool({
+            description: actionMeta.description,
+            parameters:
+              actionMeta.schema instanceof z.ZodType
+                ? actionMeta.schema
+                : // @ts-ignore
+                  jsonSchema(actionMeta.schema),
+            execute: async (params: any) => {
+              try {
+                log(`Executing tool ${actionName} with params:`, params);
+                const result = await (plugin as any).actions[
+                  actionName
+                ].execute(params);
+                return result;
+              } catch (error) {
+                console.error(`Error executing tool ${actionName}:`, error);
+                throw error;
+              }
             }
-          }
-        });
+          });
+        }
       }
     }
 
@@ -171,7 +183,11 @@ export class AgentService {
 
   public async handleMessage(
     message: Message,
-    config: { postSystemPrompt?: string; pluginScope?: string[] } = {}
+    config: {
+      postSystemPrompt?: string;
+      pluginScope?: string[];
+      pluginActions?: string[];
+    } = {}
   ): Promise<Message> {
     if (this.isShuttingDown) {
       log("Agent is shutting down, message rejected:", message.id);
@@ -201,13 +217,32 @@ export class AgentService {
         });
       }
 
+      const plugins = this.pluginManager.getRegisteredPlugins();
+      const availableTools =
+        plugins.length > 0
+          ? this.convertPluginsToTools(
+              plugins,
+              config?.pluginScope || ["*"],
+              config?.pluginActions || []
+            )
+          : undefined;
+
       // Get conversation context
-      const history = await this.memory.getRecentContext(message.author, 5);
+      const history = await this.memory.getRecentContext(
+        message.participants,
+        5
+      );
 
-      const state = await this.stateService.composeState(message, history);
-      const tools = this.tools;
+      const state = await this.stateService.composeState(
+        message,
+        history,
+        this.pluginManager.getRegisteredPlugins().map((p) => p.metadata)
+      );
 
-      log("Available tools:", Object.keys(tools));
+      log(
+        "Available tools: ",
+        availableTools ? Object.keys(availableTools) : "None"
+      );
 
       // Process with Vercel AI SDK Runtime
       // @ts-ignore
@@ -216,18 +251,23 @@ export class AgentService {
         usage,
         steps
       } = await generateText({
+        headers: {
+          "Helicone-Session-Id": message.id,
+          "Helicone-Session-Path": `/Users/${message.author}`,
+          "Helicone-Session-Name": message.source
+        },
+        toolChoice: "auto",
         // @ts-ignore
         model: this.llmInstance(this.llm.llmInstanceModel),
         system:
-          this.stateService.buildSystemPrompt(state) + config?.postSystemPrompt,
-        messages: [
-          // @ts-ignore
-          ...this.stateService.buildHistoryContext(state).reverse(),
-          // @ts-ignore
-          { role: "user", content: message.content }
-        ],
+          this.stateService.buildSystemPrompt(state) +
+          get(config, "postSystemPrompt", ""),
+        // @ts-ignore
+        messages: [...this.stateService.buildHistoryContext(state).reverse()],
         maxSteps: this.MAX_STEPS,
-        tools,
+        tools: availableTools,
+        temperature: 0.2,
+        // experimental_continueSteps: true,
         // experimental_streamTools: true,
         onStepFinish: async ({
           // @ts-ignore
@@ -253,7 +293,7 @@ export class AgentService {
 
             const { toolName, result } = firstResult;
 
-            return `Plugin called ${toolName} with result: ${JSON.stringify(result)}`;
+            return `Plugin called ${toolName} with result: ${JSON.stringify(result)}, reason: ${finishReason}`;
           };
           // Save conversation history
           await this.memory.addMemory({
@@ -261,9 +301,11 @@ export class AgentService {
             id: crypto.randomUUID(),
             content: text || formatToolResult(toolResults),
             chainId: message.id,
+            author: "agent",
             metadata: {
               usage,
-              toolResults
+              toolResults,
+              finishReason
             }
           });
         }

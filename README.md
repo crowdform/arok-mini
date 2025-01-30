@@ -369,3 +369,9 @@ Start the project with `DEBUG=arok* bun dev`
 ## License
 
 This project is licensed under the ISC License - see the LICENSE file for details.
+
+## Docker / Google Cloud Build Locally
+
+- Install Pack `brew install buildpacks/tap/pack`
+- Build `pack build arok-mini --builder gcr.io/buildpacks/builder:google-22`
+- Run `docker run -p3000:3000 arok-mini`

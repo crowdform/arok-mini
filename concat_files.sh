@@ -8,67 +8,84 @@ script_name=$(basename "$0")
 # Create projects directory if it doesn't exist
 mkdir -p ./projects
 
-# Function to check if a file matches gitignore patterns
+# Function to check if a file matches ignore patterns from either .gitignore or .concatignore
 is_ignored() {
     local file="$1"
     local pattern
+    local ignore_files=(".gitignore" ".concatignore")
     
     # Remove leading ./ from the file path for matching
     file="${file#./}"
     
-    while IFS= read -r pattern || [ -n "$pattern" ]; do
-        # Skip empty lines and comments
-        [[ -z "$pattern" || "$pattern" =~ ^[[:space:]]*# ]] && continue
+    # Check patterns from both .gitignore and .concatignore
+    for ignore_file in "${ignore_files[@]}"; do
+        # Skip if the ignore file doesn't exist
+        [ ! -f "$ignore_file" ] && continue
         
-        # Trim whitespace
-        pattern="$(echo "$pattern" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-        [ -z "$pattern" ] && continue
-        
-        # Convert pattern to regex
-        # Handle specific patterns we know exist in the gitignore
-        case "$pattern" in
-            "node_modules/"*)
-                if [[ "$file" == node_modules/* ]]; then
-                    return 0
-                fi
-                ;;
-            "node_modules")
-                if [[ "$file" == node_modules/* || "$file" == "node_modules" ]]; then
-                    return 0
-                fi
-                ;;
-            *.*)
-                # Handle file extensions and wildcard patterns
-                pattern="$(echo "$pattern" | sed 's/\./\\./g' | sed 's/\*/.*/')"
-                if [[ "$file" =~ ^${pattern}$ || "$file" =~ ^.*/${pattern}$ ]]; then
-                    return 0
-                fi
-                ;;
-            *)
-                # Handle directory patterns
-                if [[ "$pattern" == */ ]]; then
-                    if [[ "$file" == "$pattern"* || "$file" == */"$pattern"* ]]; then
+        while IFS= read -r pattern || [ -n "$pattern" ]; do
+            # Skip empty lines and comments
+            [[ -z "$pattern" || "$pattern" =~ ^[[:space:]]*# ]] && continue
+            
+            # Trim whitespace
+            pattern="$(echo "$pattern" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+            [ -z "$pattern" ] && continue
+            
+            # Convert pattern to regex
+            case "$pattern" in
+                "node_modules/"*)
+                    if [[ "$file" == node_modules/* ]]; then
                         return 0
                     fi
-                else
-                    if [[ "$file" == "$pattern" || "$file" == */"$pattern" ]]; then
+                    ;;
+                "node_modules")
+                    if [[ "$file" == node_modules/* || "$file" == "node_modules" ]]; then
                         return 0
                     fi
-                fi
-                ;;
-        esac
-    done < ".gitignore"
+                    ;;
+                *.*)
+                    # Handle file extensions and wildcard patterns
+                    pattern="$(echo "$pattern" | sed 's/\./\\./g' | sed 's/\*/.*/')"
+                    if [[ "$file" =~ ^${pattern}$ || "$file" =~ ^.*/${pattern}$ ]]; then
+                        return 0
+                    fi
+                    ;;
+                *)
+                    # Handle directory patterns
+                    if [[ "$pattern" == */ ]]; then
+                        if [[ "$file" == "$pattern"* || "$file" == */"$pattern"* ]]; then
+                            return 0
+                        fi
+                    else
+                        if [[ "$file" == "$pattern" || "$file" == */"$pattern" ]]; then
+                            return 0
+                        fi
+                    fi
+                    ;;
+            esac
+        done < "$ignore_file"
+    done
     
     return 1
 }
 
 # Initialize output file
 echo "Starting concatenation at $(date)" > "$output_file"
+echo "Using ignore patterns from:" >> "$output_file"
+[ -f ".gitignore" ] && echo "- .gitignore" >> "$output_file"
+[ -f ".concatignore" ] && echo "- .concatignore" >> "$output_file"
+echo "" >> "$output_file"
 
 # Find all files and process them
-find . -type f -not -path "./logs/*" -not -path "./node_modules/*" -not -path "./projects/*" -not -path "./.git/*" -not -name "$script_name" -not -path "./dist/*" | sort | while IFS= read -r file; do
-    # Skip if file matches gitignore patterns
-    if [ -f ".gitignore" ] && is_ignored "$file"; then
+find . -type f \
+    -not -path "./logs/*" \
+    -not -path "./node_modules/*" \
+    -not -path "./projects/*" \
+    -not -path "./.git/*" \
+    -not -name "$script_name" \
+    -not -path "./dist/*" | sort | while IFS= read -r file; do
+    
+    # Check both .gitignore and .concatignore patterns
+    if is_ignored "$file"; then
         echo "Skipping ignored file: $file"
         continue
     fi

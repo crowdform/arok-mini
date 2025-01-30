@@ -13,16 +13,21 @@
     "postinstall": "npm run build"
   },
   "engines": {
-    "node": ">=20.x.x"
+    "node": ">=22.x.x"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@ai-sdk/deepinfra": "^0.1.6",
+    "@ai-sdk/fireworks": "^0.1.5",
+    "@ai-sdk/groq": "^1.1.6",
     "@ai-sdk/openai": "^1.1.2",
+    "@solana/web3.js": "^1.98.0",
     "agent-twitter-client": "^0.0.18",
     "ai": "^4.1.2",
+    "bs58": "^6.0.0",
     "cron-parser": "^4.9.0",
     "debug": "^4.4.0",
     "dotenv": "^16.4.7",
@@ -31,6 +36,8 @@
     "grammy": "^1.34.0",
     "lodash": "^4.17.21",
     "prettier": "^3.4.2",
+    "rpc-websockets": "7.11.0",
+    "solana-agent-kit": "^1.4.4",
     "uuid": "^11.0.5",
     "zod": "^3.24.1"
   },
@@ -43,5 +50,8 @@
     "nodemon": "^3.1.9",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2"
+  },
+  "resolutions": {
+    "rpc-websockets": "7.11.0"
   }
 }

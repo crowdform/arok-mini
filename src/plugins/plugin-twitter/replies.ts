@@ -57,7 +57,10 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
           properties: {
             searchTerms: {
               type: "array",
-              items: { type: "string" },
+              items: {
+                type: "string",
+                description: "Individual search term"
+              },
               description: "Terms to search for"
             },
             maxReplies: {
@@ -190,8 +193,8 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
 
           const analysisMessage: Message = {
             id: crypto.randomUUID(),
-            content: `Create a reply to from ${tweet.username} at ${tweet.timeParsed}, saying: ${tweet.text}. `,
-            author: "system",
+            content: `Create a reply to tweetId(${tweet.id}) from ${tweet.username} at ${tweet.timeParsed}, saying: ${tweet.text}. `,
+            author: "agent",
             participants: (tweet.userId && [tweet.userId]) || [],
             type: "request",
             createdAt: new Date().toISOString(),

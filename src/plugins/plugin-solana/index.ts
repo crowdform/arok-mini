@@ -1,9 +1,12 @@
+import "rpc-websockets/dist/lib/client";
+
 import {
   ExtendedPlugin,
   PluginAction,
   PluginContext,
   PluginMetadata
 } from "../../services/plugins/types";
+
 import { Message } from "../../types/message.types";
 import debug from "debug";
 import { Keypair } from "@solana/web3.js";
@@ -11,7 +14,11 @@ import bs58 from "bs58";
 import { SolanaAgentKit, executeAction } from "solana-agent-kit";
 import { tool, type CoreTool } from "ai";
 
-import { getSolanaToolsSchema, getAction } from "./solana-tools";
+import {
+  getSolanaToolsSchema,
+  getAction,
+  removeNullValues
+} from "./solana-tools";
 
 const log = debug("arok:plugin:solana");
 
@@ -33,7 +40,36 @@ export class SolanaPlugin implements ExtendedPlugin {
     description: "Solana blockchain integration using Solana Agent Kit",
     version: "1.0.0",
     callable: true,
-    actions: {} // Actions will be populated from Solana Agent Kit tools
+    actions: {}, // Actions will be populated from Solana Agent Kit tools
+    getSystemPrompt: () => `
+        <solana_tools>
+        # Solana Tools - for all Wallet, token and solana actions use solana tools.
+
+        ## STEPS to Trade / Buy / Sell Tokens | Solana = 
+
+        Do not try to trade without understanding the token you are trading, ask for to confirm if unsure. 
+
+        1. LOOKUP_SEARCH_TOKEN - inputMint, Use this to search for tokens from cashtags, names, or addresses. Example: Search for $SOL or Solana, ai16z, VINE, $VVV, $TRUMP etc.
+        2. LOOKUP_SEARCH_TOKEN - outputMint
+        3. TRADE_ACTION - inputMint, outputMint, inputAmount
+        4. Output the transaction URL and summary of the transaction.
+
+        Tips:
+        - Use TRADE_ACTION to trade tokens and always return the SolScan url of the transaction as well as the summary of the transaction. Example: Your trade has been executed successfully. You have bought <inputAmount> SOL worth of <token name> tokens. https://solscan.io/tx/<transaction_id>
+        - For TRADE_ACTION expects contract addresses for inputMint, outputMint using LOOKUP_SEARCH_TOKEN first before calling the action to avoid errors.
+        - When trading use inputMint So11111111111111111111111111111111111111112 to buy token using SOL and outputMint So11111111111111111111111111111111111111112 when selling token back to SOL. 
+        - Use LOOKUP_SEARCH_TOKEN to find tokens from cashtags, names, or addresses. Example: Search for $SOL or Solana, then use the knowledge graph for more information.
+
+        ## Formatting Portfolio and Wallets Balance
+
+        Positions Overview:
+
+        - Portfolio Value: $<portfolio_value>
+        - Total Positions: <total_positions>
+
+        1/ <token_name> - <token_symbol> - <token_balance> - $<token_value>
+        2/ <token_name> - <token_symbol> - <token_balance> - $<token_value>
+        <solana_tools>`
   };
 
   async initialize(context: PluginContext): Promise<void> {
@@ -59,7 +95,8 @@ export class SolanaPlugin implements ExtendedPlugin {
         execute: async (params: any) => {
           try {
             // Extract userId from params
-            const { userId } = params;
+            const _params = removeNullValues(params) || {};
+            const { userId } = _params;
             // if (!userId) {
             //   throw new Error("userId is required for Solana operations");
             // }
@@ -84,7 +121,7 @@ export class SolanaPlugin implements ExtendedPlugin {
               `Error executing Solana tool ${getAction(key)}:`,
               error
             );
-            throw error;
+            return error;
           }
         }
       };

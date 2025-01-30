@@ -142,6 +142,7 @@ export class TwitterInteractions extends TwitterAutomationPlugin {
 
   async startAutomation(): Promise<void> {
     log("Starting Twitter interactions polling...");
+
     await this.context.schedulerService.registerJob({
       id: "twitter:poll-mentions",
       schedule: this.config.schedule, // Every 10 minutes

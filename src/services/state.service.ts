@@ -4,6 +4,7 @@ import type { Message } from "../types/message.types";
 import type { PluginMetadata } from "./plugins/types";
 import { MemoryService } from "./memory.service";
 import debug from "debug";
+import { Metadata } from "agent-twitter-client";
 
 const log = debug("arok:state-service");
 
@@ -66,8 +67,8 @@ export class StateService {
 
   async composeState(
     message: Message,
-    history: any[]
-    // availablePlugins: PluginMetadata[],
+    history: any[],
+    availablePlugins: PluginMetadata[]
     // pluginResponses: PluginResponse[] = []
   ): Promise<StateContext> {
     const recentMessages = await this.getRecentMessages(message);
@@ -90,7 +91,7 @@ export class StateService {
       currentMessage: message,
       recentMessages,
       history,
-      // plugins: availablePlugins,
+      plugins: availablePlugins,
       // pluginResponses,
       randomBio: this.getRandomElement(this.character.bio),
       randomLore: this.getRandomElements(this.character.lore, 3),
@@ -110,6 +111,8 @@ export class StateService {
   buildSystemPrompt(state: StateContext): string {
     // const pluginDescriptions = this.buildPluginDescriptions(state.plugins);
     const characterContext = this.buildCharacterContext(state);
+    const pluginAvailableActions = state.plugins;
+    const pluginPrompts = this.getPluginPrompts(pluginAvailableActions);
     // const pluginResponseContext = this.buildPluginResponseContext(state);
     // const conversationContext = state.conversationSummary
     //   ? `\nConversation context:\n${state.conversationSummary}`
@@ -120,16 +123,32 @@ export class StateService {
 # General Information:\n
 Date and time: ${new Date().toLocaleString()}
 
-# When a final response is needed, response in the character style:
+<additional_general_info>
+${pluginPrompts ? `# Plugin Contexts:\n${pluginPrompts}\n` : ""}
+</additional_plugin_info>
 
-## Post Examples
-${state.randomExamples.map((ex) => `> ${ex}`).join("\n")}
+<content_style>
+When a final response is needed, response any public facing text/content in the character style:
 
 ## Post Style
 ${state.character.style.all.join("\n")}
+### Post Examples
+${state.randomExamples.map((ex) => `- "${ex}"`).join("\n")}
 
 ## Chat Style
-${state.character.style.chat.join("\n")}`;
+${state.character.style.chat.join("\n")}
+
+Do not be biased by the examples for content, only writing style. The examples are for reference only.
+</content_style>
+
+<hints>
+- never output JSON or code and call the output final
+- prioritize the tools and function calling before answer. 
+- always plan first how you should answer the user, and think hard about it then execute it over the multiple tools calls before answering.
+- always think about the user's perspective and how they would understand the answer.
+- If you do not know the answer, you can ask the user for more information or tell them you do not know.
+</hints>
+`;
   }
 
   buildHistoryContext(
@@ -157,20 +176,17 @@ ${state.character.style.chat.join("\n")}`;
     return contextMessages;
   }
 
-  private buildPluginResponseContext(state: StateContext): string {
-    if (state.pluginResponses.length === 0) {
-      return "No plugins have been called yet.";
-    }
+  private getPluginPrompts(plugins: PluginMetadata[]): string {
+    const pluginPrompts = plugins
+      .map((plugin) =>
+        typeof plugin?.getSystemPrompt == "function"
+          ? plugin.getSystemPrompt()
+          : null
+      )
+      .filter((prompt): prompt is string => prompt !== null)
+      .join("\n\n");
 
-    return `Plugin chain depth: ${state.pluginChainDepth}/3
-Previous plugin calls:\n
-${state.pluginResponses
-  .map((resp) => `- ${resp.action}: ${JSON.stringify(resp.result)}`)
-  .join("\n")}`;
-  }
-
-  private calculatePluginChainDepth(responses: PluginResponse[]): number {
-    return responses.length;
+    return pluginPrompts;
   }
 
   private async buildConversationSummary(
@@ -198,14 +214,15 @@ ${state.pluginResponses
   }
 
   private buildCharacterContext(state: StateContext): string {
-    return `You are ${state.character.name}.
-${state.character.system}
+    return `<role> You are ${state.character.name}. ${state.character.system}
 \n
 Your personality:
 ${state.randomBio}
 \n
-Your recent lore:
-${state.randomLore.join("\n")}`;
+Your lore to follow:
+${state.randomLore.join("\n")}
+\n
+</role>`;
   }
 
   private buildPluginDescriptions(plugins: PluginMetadata[]): string {
@@ -233,7 +250,10 @@ ${actionDescriptions}`;
 
   private async getRecentMessages(message: Message): Promise<Message[]> {
     try {
-      return await this.memoryService.getRecentContext(message.author, 15);
+      return await this.memoryService.getRecentContext(
+        message.participants,
+        15
+      );
     } catch (error) {
       log("Error getting recent messages:", error);
       return [message];

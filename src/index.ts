@@ -7,21 +7,17 @@ config();
 import { CharacterLoader } from "./services/character.loader";
 import { AgentService } from "./services/agent.service";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createFireworks } from "@ai-sdk/fireworks";
+import { createGroq } from "@ai-sdk/groq";
+import { createDeepInfra } from "@ai-sdk/deepinfra";
+
 import debug from "debug";
 
 const log = debug("arok:init");
 
 // plugins
 
-import { QueryPlugin } from "./plugins/plugin-query";
-import {
-  TwitterTweetsPlugin,
-  TwitterRepliesPlugin,
-  TwitterInteractions
-} from "./plugins/plugin-twitter";
-import { APIPlugin } from "./plugins/plugin-api";
-import { TelegramPlugin } from "./plugins/plugin-telegram";
-import { SolanaPlugin } from "./plugins/plugin-solana";
+import { PluginLoader } from "./services/plugins/plugin.loader";
 
 async function startServer() {
   try {
@@ -52,16 +48,51 @@ async function startServer() {
       headers: {
         "Helicone-Property-Name": `${process.env.PLUGIN_TWITTER_USERNAME}/default`
       },
-      model: "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo"
+      // model: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
+      // model: "deepseek-ai/deepseek-llm-67b-chat"
+      model: "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo"
     };
     const llmInstance = createOpenAI({
       ...openaiConfig
     });
 
+    const fireworksModel = process.env.FIREWORKS_MODEL as string;
+    const fireworksInstance = createFireworks({
+      apiKey: process.env.FIREWORKS_API_KEY,
+      baseURL: process.env.FIREWORKS_BASE_URL,
+      headers: {
+        Authorization: `Bearer ${process.env.FIREWORKS_API_KEY}`,
+        "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
+        "Helicone-Property-Name": `${process.env.PLUGIN_TWITTER_USERNAME}/default`
+      }
+    });
+
+    const groqModel = process.env.GROQ_MODEL as string;
+    const groqInstance = createGroq({
+      apiKey: process.env.GROQ_API_KEY,
+      // baseURL: process.env.GROQ_BASE_URL,
+      headers: {
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
+        "Helicone-Property-Name": `${process.env.PLUGIN_TWITTER_USERNAME}/default`
+      }
+    });
+
+    const deepinfraModel = process.env.DEEPINFRA_MODEL as string;
+    const deepinfraInstance = createDeepInfra({
+      apiKey: process.env.DEEPINFRA_API_KEY,
+      baseURL: process.env.DEEPINFRA_BASE_URL,
+      headers: {
+        Authorization: `Bearer ${process.env.DEEPINFRA_API_KEY}`,
+        "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
+        "Helicone-Property-Name": `${process.env.PLUGIN_TWITTER_USERNAME}/default`
+      }
+    });
     const agent = new AgentService({
       characterConfig: character,
-      llmInstance,
-      llmInstanceModel: openaiConfig.model,
+      // @ts-ignore
+      llmInstance: deepinfraInstance,
+      llmInstanceModel: deepinfraModel,
       schedulerConfig: {
         mode: "single-node",
         timeZone: "UTC",
@@ -69,14 +100,8 @@ async function startServer() {
       }
     });
 
-    // Register plugins
-    await agent.registerPlugin(new QueryPlugin());
-    // await agent.registerPlugin(new TwitterRepliesPlugin());
-    await agent.registerPlugin(new TwitterTweetsPlugin());
-    await agent.registerPlugin(new APIPlugin({ app }));
-    // await agent.registerPlugin(new TwitterInteractions());
-    await agent.registerPlugin(new TelegramPlugin());
-    // await agent.registerPlugin(new SolanaPlugin());
+    const loader = new PluginLoader(agent, app);
+    await loader.loadPlugins(character.plugins);
 
     console.log("Clients started successfully");
     // Basic health check endpoint
