@@ -52,7 +52,8 @@ export class TwitterInteractionControl {
       "function",
       "{",
       "}",
-      "["
+      "[",
+      '"name"'
     ],
     skipProbability: 0.2 // 20% chance to randomly skip
   };
