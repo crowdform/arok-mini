@@ -2,7 +2,7 @@ export interface Message {
   id: string;
   content: string;
   author: string;
-  participants?: string[];
+  participants: string[];
   type: "request" | "response" | "event";
   requestId?: string; // Original request ID if this is a response
   source:

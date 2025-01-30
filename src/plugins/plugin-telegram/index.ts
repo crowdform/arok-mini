@@ -185,6 +185,7 @@ export class TelegramPlugin implements ExtendedPlugin {
         id: crypto.randomUUID(),
         content: ctx.message.text,
         author: ctx.session.userId,
+        participants: [ctx.session.userId],
         type: "request",
         source: "telegram",
         createdAt: new Date().toISOString(),

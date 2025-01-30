@@ -8,6 +8,9 @@ import { CharacterLoader } from "./services/character.loader";
 import { AgentService } from "./services/agent.service";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createFireworks } from "@ai-sdk/fireworks";
+import { createGroq } from "@ai-sdk/groq";
+import { createDeepInfra } from "@ai-sdk/deepinfra";
+
 import debug from "debug";
 
 const log = debug("arok:init");
@@ -50,7 +53,7 @@ async function startServer() {
       model: "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo"
     };
     const llmInstance = createOpenAI({
-      ...togetherAiConfig
+      ...openaiConfig
     });
 
     const fireworksModel = process.env.FIREWORKS_MODEL as string;
@@ -64,11 +67,32 @@ async function startServer() {
       }
     });
 
+    const groqModel = process.env.GROQ_MODEL as string;
+    const groqInstance = createGroq({
+      apiKey: process.env.GROQ_API_KEY,
+      // baseURL: process.env.GROQ_BASE_URL,
+      headers: {
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
+        "Helicone-Property-Name": `${process.env.PLUGIN_TWITTER_USERNAME}/default`
+      }
+    });
+
+    const deepinfraModel = process.env.DEEPINFRA_MODEL as string;
+    const deepinfraInstance = createDeepInfra({
+      apiKey: process.env.DEEPINFRA_API_KEY,
+      baseURL: process.env.DEEPINFRA_BASE_URL,
+      headers: {
+        Authorization: `Bearer ${process.env.DEEPINFRA_API_KEY}`,
+        "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
+        "Helicone-Property-Name": `${process.env.PLUGIN_TWITTER_USERNAME}/default`
+      }
+    });
     const agent = new AgentService({
       characterConfig: character,
       // @ts-ignore
-      llmInstance: fireworksInstance.chatModel,
-      llmInstanceModel: fireworksModel,
+      llmInstance: deepinfraInstance,
+      llmInstanceModel: deepinfraModel,
       schedulerConfig: {
         mode: "single-node",
         timeZone: "UTC",

@@ -18,6 +18,7 @@ import type { OpenAIProvider } from "@ai-sdk/openai";
 import { AIResponseParser } from "../utils";
 const log = debug("arok:agent-service");
 import { z } from "zod";
+import { get } from "lodash";
 
 export interface AgentConfig {
   characterConfig: Character;
@@ -227,7 +228,10 @@ export class AgentService {
           : undefined;
 
       // Get conversation context
-      const history = await this.memory.getRecentContext(message.author, 5);
+      const history = await this.memory.getRecentContext(
+        message.participants,
+        5
+      );
 
       const state = await this.stateService.composeState(
         message,
@@ -256,7 +260,8 @@ export class AgentService {
         // @ts-ignore
         model: this.llmInstance(this.llm.llmInstanceModel),
         system:
-          this.stateService.buildSystemPrompt(state) + config?.postSystemPrompt,
+          this.stateService.buildSystemPrompt(state) +
+          get(config, "postSystemPrompt", ""),
         // @ts-ignore
         messages: [...this.stateService.buildHistoryContext(state).reverse()],
         maxSteps: this.MAX_STEPS,

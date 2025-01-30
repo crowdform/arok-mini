@@ -193,7 +193,7 @@ export class TwitterRepliesPlugin extends TwitterAutomationPlugin {
 
           const analysisMessage: Message = {
             id: crypto.randomUUID(),
-            content: `Create a reply to from ${tweet.username} at ${tweet.timeParsed}, saying: ${tweet.text}. `,
+            content: `Create a reply to tweetId(${tweet.id}) from ${tweet.username} at ${tweet.timeParsed}, saying: ${tweet.text}. `,
             author: "agent",
             participants: (tweet.userId && [tweet.userId]) || [],
             type: "request",

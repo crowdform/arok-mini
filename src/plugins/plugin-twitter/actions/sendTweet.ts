@@ -51,11 +51,11 @@ const sendTweetAction: Action<TwitterClient> = {
   ],
   schema: z.object({
     content: z.string().min(1).max(280).describe("The tweet content to post"),
-    replyTo: z.string().optional().describe("Optional ID of tweet to reply to"),
-    mediaFiles: z
-      .array(z.any())
-      .optional()
-      .describe("Optional array of media files to attach")
+    replyTo: z.string().optional().describe("Optional ID of tweet to reply to")
+    // mediaFiles: z
+    //   .array(z.any())
+    //   .optional()
+    //   .describe("Optional array of media files to attach")
   }),
   handler: async (twitterClient: TwitterClient, input: Record<string, any>) => {
     try {

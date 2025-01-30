@@ -149,6 +149,7 @@ export class APIPlugin implements ExtendedPlugin {
             Do not reply directly but MUST call tools and functions in-order to route this request to the correct function. Use POST_CONTENT mostly.
             `,
           author: apiMessage.userId || "agent",
+          participants: [apiMessage.userId || "agent"],
           createdAt: new Date().toISOString(),
           type: "request",
           source: "api",
@@ -209,6 +210,7 @@ export class APIPlugin implements ExtendedPlugin {
           content: apiMessage.content,
           author: apiMessage.userId || "api-user",
           createdAt: new Date().toISOString(),
+          participants: [apiMessage.userId || "api-user"],
           type: "request",
           source: "api",
           requestId: apiMessage.requestId,

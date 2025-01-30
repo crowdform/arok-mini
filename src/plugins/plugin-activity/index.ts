@@ -796,6 +796,7 @@ Consider:
         "Generate 3 strategic goals for today based on current market conditions and ongoing activities.",
       author: "agent",
       type: "request",
+      participants: ["agent"],
       source: "automated",
       createdAt: new Date().toISOString(),
       metadata: {

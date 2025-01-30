@@ -11,8 +11,14 @@ import {
 import { db } from "../config/firebase";
 import type { Message } from "../types/message.types";
 import debug from "debug";
+import { stringToUuid } from "../utils";
 
 const log = debug("arok:memory-service");
+
+const getRoomId = (participants: string[]): string => {
+  console.log("participants", participants, participants.join("-"));
+  return stringToUuid(participants.join("-"));
+};
 
 interface MemoryEntry extends Message {
   roomId: string;
@@ -29,8 +35,8 @@ export class MemoryService {
     try {
       const entry: MemoryEntry = {
         id: message.id,
-        roomId: message.id,
-        participants: [message.author],
+        roomId: getRoomId(message.participants || [message.author]),
+        participants: message.participants || [message.author],
         author: message.author,
         type: message.type,
         content: message.content,
@@ -41,15 +47,7 @@ export class MemoryService {
       };
 
       // If this is a reply, add original author to participants
-      if (message.requestId) {
-        const parentEntry = await this.getEntry(message.requestId);
-        if (
-          parentEntry &&
-          !entry.participants.includes(parentEntry.participants[0])
-        ) {
-          entry.participants.push(parentEntry.participants[0]);
-        }
-      }
+
       log(`Adding memory entry: ${entry.roomId}`, entry);
       await setDoc(doc(db, this.COLLECTION, entry.roomId), entry);
 
@@ -132,13 +130,14 @@ export class MemoryService {
    * Gets recent conversation context for a participant
    */
   async getRecentContext(
-    participantId: string,
+    participants: string[],
     limit = 10
   ): Promise<MemoryEntry[]> {
     try {
+      const roomId = getRoomId(participants);
       const q = query(
         collection(db, this.COLLECTION),
-        where("participants", "array-contains", participantId),
+        where("roomId", "==", roomId),
         orderBy("createdAt", "desc")
       );
 

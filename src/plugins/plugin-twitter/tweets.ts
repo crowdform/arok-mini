@@ -370,7 +370,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
         id: crypto.randomUUID(),
         content: `Generate a tweet about: ${topics.join(", ")}. 
           Make it engaging and informative. Use the QUERY plugin first.
-          Output only the Tweet content, do not call the POST_CONTENT maximum 280 characters. Reminder never use hashtags or emojis in the Twitter post content. Never repeat content from previous Tweets`,
+          Output only the Tweet content as a string, maximum 280 characters. Reminder never use hashtags or emojis in the Twitter post content. Never repeat content from previous Tweets`,
         author: "system-tweets",
         participants: ["system-tweets"],
         createdAt: new Date().toISOString(),

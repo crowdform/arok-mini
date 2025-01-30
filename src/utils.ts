@@ -1,10 +1,12 @@
 import { v5 as uuidv5 } from "uuid";
 
-const NAMESPACE = "AROK.VC";
+const NAMESPACE = "6ba7b810-9dad-11d1-80b4-00c04fd430c8"; // This is the URL namespace UUID
+const CUSTOM_NAMESPACE = uuidv5("AROK-MINI", NAMESPACE);
+
 export type UUID = `${string}-${string}-${string}-${string}-${string}`;
 
 export function stringToUuid(inputString: string): UUID {
-  return uuidv5(inputString, NAMESPACE) as UUID;
+  return uuidv5(inputString, CUSTOM_NAMESPACE) as UUID;
 }
 
 // src/utils/ai-parser.ts

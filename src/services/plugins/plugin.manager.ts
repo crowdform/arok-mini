@@ -111,6 +111,7 @@ export class PluginManager {
       id: crypto.randomUUID(),
       content: typeof result === "string" ? result : JSON.stringify(result),
       author: `plugin:${pluginName}`,
+      participants: [message.author],
       createdAt: new Date().toISOString(),
       source: "plugin",
       type: "response",

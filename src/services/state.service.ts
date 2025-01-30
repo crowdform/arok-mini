@@ -139,7 +139,7 @@ ${state.randomExamples.map((ex) => `- "${ex}"`).join("\n")}
 ${state.character.style.chat.join("\n")}
 
 Do not be biased by the examples for content, only writing style. The examples are for reference only.
-<content_style>
+</content_style>
 
 <hints>
 - never output JSON or code and call the output final
@@ -250,7 +250,10 @@ ${actionDescriptions}`;
 
   private async getRecentMessages(message: Message): Promise<Message[]> {
     try {
-      return await this.memoryService.getRecentContext(message.author, 15);
+      return await this.memoryService.getRecentContext(
+        message.participants,
+        15
+      );
     } catch (error) {
       log("Error getting recent messages:", error);
       return [message];

@@ -69,6 +69,7 @@ export abstract class TwitterAutomationPlugin implements ExtendedPlugin {
       author: "agent",
       createdAt: new Date().toISOString(),
       source: "twitter",
+      participants: ["agent"],
       requestId: replyTo,
       type: "event",
       metadata: {
@@ -93,6 +94,7 @@ export abstract class TwitterAutomationPlugin implements ExtendedPlugin {
       id: crypto.randomUUID(),
       content: prompt,
       author: "agent",
+      participants: ["agent"],
       createdAt: new Date().toISOString(),
       source: "automated",
       type: "request",
