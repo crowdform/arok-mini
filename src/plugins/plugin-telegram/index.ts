@@ -63,7 +63,7 @@ export class TelegramPlugin implements ExtendedPlugin {
       },
       BROADCAST: {
         description: "Broadcast a message to all admin users",
-        scope: ["admin"],
+        // scope: ["admin"],
         schema: {
           type: "object",
           properties: {

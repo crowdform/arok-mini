@@ -53,9 +53,10 @@ export class TwitterInteractionControl {
       "{",
       "}",
       "[",
-      '"name"'
+      '"name"',
+      "try again"
     ],
-    skipProbability: 0.2 // 20% chance to randomly skip
+    skipProbability: 0 // 20% chance to randomly skip
   };
 
   constructor(

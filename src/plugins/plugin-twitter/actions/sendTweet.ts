@@ -50,7 +50,13 @@ const sendTweetAction: Action<TwitterClient> = {
     ]
   ],
   schema: z.object({
-    content: z.string().min(1).max(280).describe("The tweet content to post"),
+    content: z
+      .string()
+      .min(1)
+      .max(280)
+      .describe(
+        "The tweet content to post, max 280 characters, no hashtags or try @mentions people related to the tweet (only if you know correct handle)"
+      ),
     replyTo: z
       .string()
       .optional()
@@ -63,6 +69,9 @@ const sendTweetAction: Action<TwitterClient> = {
     //   .describe("Optional array of media files to attach")
   }),
   handler: async (twitterClient: TwitterClient, input: Record<string, any>) => {
+    const stripHashtags = (text: string) => {
+      return text.replace(/#\w+\s*/g, "").trim();
+    };
     try {
       const {
         content,
@@ -70,7 +79,10 @@ const sendTweetAction: Action<TwitterClient> = {
         //mediaFiles
       } = input;
 
-      const result = await twitterClient.scraper.sendTweet(content, replyTo);
+      const result = await twitterClient.scraper.sendTweet(
+        stripHashtags(content),
+        replyTo
+      );
 
       return {
         status: "success",

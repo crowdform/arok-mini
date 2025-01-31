@@ -43,7 +43,6 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
     actions: {
       GENERATE_TOPICS: {
         description: "Generate and update tweet topics",
-        scope: ["automation"],
         schema: {
           type: "object",
           properties: {
@@ -82,7 +81,6 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
         ]
       },
       GENERATE_TWEET: {
-        scope: ["automation"],
         description: "Generate and post a new tweet using available topics",
         schema: {
           type: "object",
@@ -121,10 +119,10 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
 
   config: TweetGenerationConfig = {
     enabled: true,
-    schedule: "*/30 * * * *", // Every 30 minutes
+    schedule: "0 0 * * *", // Every 30 minutes
     maxRetries: 3,
     timeout: 30000,
-    topicsPerTweet: 2,
+    topicsPerTweet: 1,
     maxTweetsPerRun: 1,
     minInterval: 30 * 60 * 1000, // 30 minutes minimum between tweets
     useTrendingTopics: true
@@ -137,8 +135,8 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
       }
     },
     GENERATE_TWEET: {
-      execute: async (data: { topics: string[] }) => {
-        return this.generateAndPostTweet(data.topics);
+      execute: async () => {
+        return this.generateAndPostTweet();
       }
     },
     POST_CONTENT: {
@@ -185,7 +183,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
     // Register topic update job
     await this.context.schedulerService.registerJob({
       id: "twitter:update-topics",
-      schedule: "0 */4 * * *", // Every 2 hours
+      schedule: "0 */11 * * *", // Every 11 hours
       handler: async () => {
         return this.generateAndUpdateTopics(3); // Generate 10 topics every run
       },
@@ -200,8 +198,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
       id: "twitter:post-tweets",
       schedule: "0 */3 * * *", // Every 3hours
       handler: async () => {
-        const topics = await this.getRelevantTopics(1);
-        return this.generateAndPostTweet(topics.map((t) => t.topic));
+        return this.generateAndPostTweet();
       },
       metadata: {
         plugin: this.metadata.name,
@@ -267,7 +264,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
       );
 
       // Keep only top 5 topics
-      topicCache.topics = topicCache.topics.slice(0, 5);
+      topicCache.topics = topicCache.topics.slice(0, 3);
 
       // Update cache
       topicCache.lastUpdated = Date.now();
@@ -347,7 +344,7 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
     }
   }
 
-  private async generateAndPostTweet(topics: string[]): Promise<{
+  private async generateAndPostTweet(): Promise<{
     status: string;
     tweetId?: string;
     topics: string[];
@@ -356,6 +353,13 @@ export class TwitterTweetsPlugin extends TwitterAutomationPlugin {
     content?: string;
   }> {
     try {
+      // Get relevant topics
+      const relevantTopic = await this.getRelevantTopics(
+        this.config.topicsPerTweet
+      );
+
+      const topics = relevantTopic.map((t) => t.topic);
+
       const timeSinceLastTweet = Date.now() - this.lastTweetTime;
       if (timeSinceLastTweet < this.config.minInterval) {
         return {
