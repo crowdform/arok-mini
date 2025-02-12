@@ -161,7 +161,7 @@ Do not be biased by the examples for content, only writing style. The examples a
       const author = msg.author || msg?.participants?.[0] || "assistant";
       contextMessages.push({
         role: author === "agent" ? "assistant" : "user",
-        content: `${msg.content}`
+        content: `user: ${msg.author}\n sentAt: ${msg.createdAt}\n message: ${msg.content}`
       });
     }
 

@@ -230,7 +230,7 @@ export class AgentService {
       // Get conversation context
       const history = await this.memory.getRecentContext(
         message.participants,
-        5
+        15
       );
 
       const state = await this.stateService.composeState(

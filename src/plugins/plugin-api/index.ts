@@ -171,7 +171,7 @@ export class APIPlugin implements ExtendedPlugin {
               \n
               # Example handling: \n
               If new content, news, market movement is detected, call SEND_TWEET function with content. \n 
-              Do not repeat yourself so check the previous context for the last actions and posts.
+              Do not repeat yourself so check the previous context for the last actions and posts - reply instead with SKIP and reason to skip without calling any tools.
               Do not reply directly but MUST call tools and functions in-order to route this request to the correct function. Use SEND_TWEET mostly.
               You must reply in the character style, when posting content.
               Focus on one topic from the notification event.
