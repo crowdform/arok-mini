@@ -13,3 +13,4 @@ functions
 _.env
 .env.local
 .env.production
+.DS_Store
