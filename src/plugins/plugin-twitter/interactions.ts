@@ -202,7 +202,7 @@ export class TwitterInteractions extends TwitterAutomationPlugin {
         }
 
         count++;
-        const message = this.client.tweetToMessage(mention);
+        const message = await this.client.tweetToMessage(mention);
 
         // Get AI response
         const replyMessage = await this.context.agentService.handleMessage(

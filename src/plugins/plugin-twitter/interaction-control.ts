@@ -54,7 +54,11 @@ export class TwitterInteractionControl {
       "}",
       "[",
       '"name"',
-      "try again"
+      "try again",
+      //
+      "BTC",
+      "btc",
+      "bitcoin"
     ],
     skipProbability: 0 // 20% chance to randomly skip
   };

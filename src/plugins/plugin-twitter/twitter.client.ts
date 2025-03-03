@@ -319,12 +319,19 @@ export class TwitterClient {
     return match ? match[1] : "";
   }
 
-  tweetToMessage(tweet: Tweet): Message {
+  async tweetToMessage(tweet: Tweet): Promise<Message> {
+    let mainTweet = "";
+    let content = `Twitter mention from ${tweet.username} at ${tweet.timeParsed}: ${tweet.text}`;
+    if (tweet.isReply && tweet.conversationId) {
+      const mainTweetData = await this.getTweet(tweet.conversationId);
+      if (mainTweetData)
+        mainTweet = `Twitter Post being replied to - Original from ${mainTweetData.username} at ${mainTweetData.timeParsed}: ${mainTweetData.text}`;
+      content += mainTweet ? `\n\n${mainTweet}` : "";
+    }
+
     return {
       id: `${tweet.id}`,
-      content:
-        `Twitter mention from ${tweet.username} at ${tweet.timeParsed}: ${tweet.text}` ||
-        "",
+      content: content,
       author: tweet.userId || "",
       createdAt: tweet?.timestamp
         ? new Date(+tweet?.timestamp).toISOString()
