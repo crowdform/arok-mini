@@ -58,7 +58,9 @@ export class TwitterInteractionControl {
       //
       "BTC",
       "btc",
-      "bitcoin"
+      "bitcoin",
+      "successfully posted",
+      "tweet"
     ],
     skipProbability: 0 // 20% chance to randomly skip
   };
