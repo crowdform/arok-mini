@@ -6,10 +6,7 @@ import express from "express";
 config();
 import { CharacterLoader } from "./services/character.loader";
 import { AgentService } from "./services/agent.service";
-import { createOpenAI } from "@ai-sdk/openai";
-import { createFireworks } from "@ai-sdk/fireworks";
-import { createGroq } from "@ai-sdk/groq";
-import { createDeepInfra } from "@ai-sdk/deepinfra";
+import { getLLMInstance, getProviderConfig } from "./services/llm.providers";
 
 import debug from "debug";
 
@@ -29,70 +26,21 @@ async function startServer() {
 
     // Load character configuration
     const characterLoader = new CharacterLoader();
-    const character = await characterLoader.loadCharacter("default");
+    const character = await characterLoader.loadCharacter(
+      (process.env.CHARACTER_FILE_NAME as string) || "default"
+    );
     log(`Loaded character: ${character.name}`);
 
-    const openaiConfig = {
-      apiKey: process.env.OPENAI_API_KEY,
-      baseURL: "https://oai.helicone.ai/v1",
-      headers: {
-        "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
-        "Helicone-Property-Name": `${process.env.PLUGIN_TWITTER_USERNAME}/default`
-      },
-      model: "gpt-4-turbo"
-    };
+    // Get LLM provider configuration from environment variables
+    const { provider, config: providerConfig } = getProviderConfig();
+    const llmInstance = getLLMInstance(provider, providerConfig);
+    log(`LLM provider initialized: ${provider}`);
 
-    const togetherAiConfig = {
-      apiKey: process.env.TOGETHER_API_KEY,
-      baseURL: `https://together.helicone.ai/v1/${process.env.HELICONE_API_KEY}`,
-      headers: {
-        "Helicone-Property-Name": `${process.env.PLUGIN_TWITTER_USERNAME}/default`
-      },
-      // model: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
-      // model: "deepseek-ai/deepseek-llm-67b-chat"
-      model: "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo"
-    };
-    const llmInstance = createOpenAI({
-      ...openaiConfig
-    });
-
-    const fireworksModel = process.env.FIREWORKS_MODEL as string;
-    const fireworksInstance = createFireworks({
-      apiKey: process.env.FIREWORKS_API_KEY,
-      baseURL: process.env.FIREWORKS_BASE_URL,
-      headers: {
-        Authorization: `Bearer ${process.env.FIREWORKS_API_KEY}`,
-        "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
-        "Helicone-Property-Name": `${process.env.PLUGIN_TWITTER_USERNAME}/default`
-      }
-    });
-
-    const groqModel = process.env.GROQ_MODEL as string;
-    const groqInstance = createGroq({
-      apiKey: process.env.GROQ_API_KEY,
-      // baseURL: process.env.GROQ_BASE_URL,
-      headers: {
-        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-        "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
-        "Helicone-Property-Name": `${process.env.PLUGIN_TWITTER_USERNAME}/default`
-      }
-    });
-
-    const deepinfraModel = process.env.DEEPINFRA_MODEL as string;
-    const deepinfraInstance = createDeepInfra({
-      apiKey: process.env.DEEPINFRA_API_KEY,
-      baseURL: process.env.DEEPINFRA_BASE_URL,
-      headers: {
-        Authorization: `Bearer ${process.env.DEEPINFRA_API_KEY}`,
-        "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
-        "Helicone-Property-Name": `${process.env.PLUGIN_TWITTER_USERNAME}/default`
-      }
-    });
     const agent = new AgentService({
       characterConfig: character,
       // @ts-ignore
-      llmInstance: deepinfraInstance,
-      llmInstanceModel: deepinfraModel,
+      llmInstance: llmInstance,
+      llmInstanceModel: providerConfig.model,
       schedulerConfig: {
         mode: "single-node",
         timeZone: "UTC",
