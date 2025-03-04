@@ -10,7 +10,9 @@
     "debug": "nodemon --exec ts-node src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
-    "postinstall": "npm run build"
+    "postinstall": "npm run build",
+    "start:service": "pm2 start pnpm --name=\"all\" --restart-delay=3000 --max-restarts=10 -- run start",
+    "stop:service": "pm2 stop all"
   },
   "engines": {
     "node": ">=22.x.x"
@@ -48,6 +50,7 @@
     "@types/lodash": "^4.17.13",
     "@types/node": "^22.10.2",
     "nodemon": "^3.1.9",
+    "pm2": "^5.4.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2"
   },

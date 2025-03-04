@@ -55,7 +55,7 @@ export function getLLMInstance(provider: LLMProvider, config: ProviderConfig) {
       });
 
     case "deepinfra":
-      return createDeepInfra({
+      return createOpenAI({
         apiKey: config.apiKey,
         baseURL: config.baseURL,
         headers: config.headers
