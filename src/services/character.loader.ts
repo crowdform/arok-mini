@@ -46,7 +46,7 @@ export class CharacterLoader {
   private characterCache: Map<string, Character> = new Map();
   private readonly baseDir: string;
 
-  constructor(baseDir: string = "../characters") {
+  constructor(baseDir: string = "../../characters") {
     this.baseDir = baseDir;
   }
 
