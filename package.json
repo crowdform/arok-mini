@@ -10,8 +10,7 @@
     "debug": "nodemon --exec ts-node src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
-    "gcp-build": "npm install typescript && npx tsc",
-    "postinstall": "npx tsc",
+    "postinstall": "npm run build",
     "start:service": "pm2 start pnpm --name=\"all\" --restart-delay=3000 --max-restarts=10 -- run start",
     "stop:service": "pm2 stop all"
   },
