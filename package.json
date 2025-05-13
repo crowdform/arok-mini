@@ -11,7 +11,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
     "gcp-build": "pnpm install -g typescript && pnpm run postinstall",
-    "postinstall": "npx build",
+    "postinstall": "pnpx tsc",
     "start:service": "pm2 start pnpm --name=\"all\" --restart-delay=3000 --max-restarts=10 -- run start",
     "stop:service": "pm2 stop all"
   },
